@@ -1,0 +1,8 @@
+# requirements.txt fajl služi za beleženje svih zavisnosti projekta(dependencies)
+python-dotenv==1.0.1 # ovo nije primer, ovo je prava verzija i dependency
+
+# PRIMER kako moze izgledati sadrzaj nakon dodavanja nekoliko paketa
+# brojevi verzija mogu varirati !
+Flask==2.3.2
+Flask-SQLAlchemy==3.0.4
+Flask-Mail==0.9.1
