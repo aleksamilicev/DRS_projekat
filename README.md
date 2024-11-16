@@ -1,7 +1,9 @@
 # DRS_projekat
 Drustvena mreza
 
-# po potrebi dodati nove fajlove i foldere
+# Folder-file struktura
+Ovaj deo je citljiv unutar Visual Studio Code-a
+Po potrebiti dodati nove foldere i file-ove
 Folder-file arhitektura:
 /project-root
   /app                  # Glavni folder za Flask aplikaciju
