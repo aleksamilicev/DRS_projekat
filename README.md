@@ -21,6 +21,10 @@ Folder-file arhitektura:
     api.py              # API endpointi
   /db                   # Folder za baze podataka
     migrations          # (npr. za SQLAlchemy migracije)
+  /database
+    01_create_tables.sql
+    02_seed_data.sql
+    03_indexes.sql
   config.py             # Konfiguracija aplikacije (dev/prod)
   requirements.txt      # Python dependency-i
   .gitignore            # Ignorisanje nepotrebnih fajlova
