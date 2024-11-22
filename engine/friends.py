@@ -1,25 +1,21 @@
-from flask import request, jsonify
+# /engine/friends.py
 
-# Funkcija za slanje zahteva za prijateljstvo
+from flask import jsonify
+
 def send_friend_request(user_id):
-    pass
+    return jsonify({"message": f"Friend request sent to user {user_id}!"}), 201
 
-# Funkcija za dobijanje svih zahteva za prijateljstvo
 def get_friend_requests():
-    pass
+    return jsonify({"message": "List of friend requests"}), 200
 
-# Funkcija za prihvatanje zahteva za prijateljstvo
 def accept_friend_request(request_id):
-    pass
+    return jsonify({"message": f"Friend request {request_id} accepted!"}), 200
 
-# Funkcija za odbijanje zahteva za prijateljstvo
 def reject_friend_request(request_id):
-    pass
+    return jsonify({"message": f"Friend request {request_id} rejected!"}), 200
 
-# Funkcija za dobijanje liste prijatelja
 def get_friends():
-    pass
+    return jsonify({"message": "List of friends"}), 200
 
-# Funkcija za brisanje prijatelja
 def delete_friend(friend_id):
-    pass
+    return jsonify({"message": f"Friend {friend_id} deleted!"}), 200

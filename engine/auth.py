@@ -1,13 +1,12 @@
-from flask import request, jsonify
+# /engine/auth.py
 
-# Funkcija za registraciju korisnika
+from flask import jsonify
+
 def register():
-    pass
+    return jsonify({"message": "User registered successfully!"}), 201
 
-# Funkcija za prijavu korisnika
 def login():
-    pass
+    return jsonify({"message": "Login successful!", "token": "example_token"}), 200
 
-# Funkcija za odjavu korisnika
 def logout():
-    pass
+    return jsonify({"message": "Logout successful!"}), 200
