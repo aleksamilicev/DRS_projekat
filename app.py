@@ -16,16 +16,10 @@ def create_app():
     def home():
         return "Hello, Flask!"
 
-    # Return both the app and the db_client
+   
     return app, db_client
 
-# Main entry point
+# Main 
 if __name__ == '__main__':
-    app, db_client = create_app()  # Use the create_app function to initialize the app
-    print("AAAAAAAAAAAAa")
-    try:
-        users = db_client.execute_query("SELECT * FROM licni_podaci_korisnika")
-        print("Users:", users)
-    except Exception as e:
-        print("Error during query execution:", e)
+    app, db_client = create_app()  
     app.run(debug=True)
