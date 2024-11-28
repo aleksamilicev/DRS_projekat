@@ -4,7 +4,7 @@ from flask import jsonify, request
 
 # Notifications route functions
 def create_notification():
-    # To do
+    print('keke')
     return jsonify({"message": "Notification created successfully"}), 201
 
 def get_notifications():

@@ -3,9 +3,9 @@ from ...services.userProfileServices.userProfileServices import (
     get_user_profile, 
     update_user_profile, 
     delete_user_profile )
-api = Blueprint('api', __name__)
+user_profile_routes = Blueprint('user_profile', __name__)
 
 # Users routes
-api.add_url_rule('/users/<int:user_id>', view_func=get_user_profile, methods=['GET'])
-api.add_url_rule('/users/<int:user_id>', view_func=update_user_profile, methods=['PUT'])
-api.add_url_rule('/users/<int:user_id>', view_func=delete_user_profile, methods=['DELETE'])
+user_profile_routes.add_url_rule('/users/<int:user_id>', view_func=get_user_profile, methods=['GET'])
+user_profile_routes.add_url_rule('/users/<int:user_id>', view_func=update_user_profile, methods=['PUT'])
+user_profile_routes.add_url_rule('/users/<int:user_id>', view_func=delete_user_profile, methods=['DELETE'])

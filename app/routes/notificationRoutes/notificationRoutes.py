@@ -8,12 +8,12 @@ from ...services.notificationServices.notificationServices import (
     delete_notification
 )
 
-api = Blueprint('api', __name__)
+notification_routes = Blueprint('notification', __name__)
 
 # Notifications routes
-api.add_url_rule('/notifications', view_func=create_notification, methods=['POST']) 
-api.add_url_rule('/notifications', view_func=get_notifications, methods=['GET'])  
-api.add_url_rule('/notifications/<int:notification_id>', view_func=get_notification_by_id, methods=['GET'])  
-api.add_url_rule('/notifications/<int:notification_id>', view_func=update_notification, methods=['PUT'])  
-api.add_url_rule('/notifications/<int:notification_id>/read', view_func=mark_notification_as_read, methods=['PUT']) 
-api.add_url_rule('/notifications/<int:notification_id>', view_func=delete_notification, methods=['DELETE'])  
+notification_routes.add_url_rule('/notifications', view_func=create_notification, methods=['POST']) 
+notification_routes.add_url_rule('/notifications', view_func=get_notifications, methods=['GET'])  
+notification_routes.add_url_rule('/notifications/<int:notification_id>', view_func=get_notification_by_id, methods=['GET'])  
+notification_routes.add_url_rule('/notifications/<int:notification_id>', view_func=update_notification, methods=['PUT'])  
+notification_routes.add_url_rule('/notifications/<int:notification_id>/read', view_func=mark_notification_as_read, methods=['PUT']) 
+notification_routes.add_url_rule('/notifications/<int:notification_id>', view_func=delete_notification, methods=['DELETE'])  
