@@ -1,5 +1,5 @@
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy.sql import text  # Import text for raw SQL queries
+from sqlalchemy.sql import text  
 
 db = SQLAlchemy()
 

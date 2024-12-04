@@ -1,8 +1,14 @@
-from flask import jsonify, request
+from flask import jsonify, request, current_app
+
 
 def get_all_users():
-    # To do
-    return jsonify({"message": "Retrieved all users"}), 200
+    db_client = current_app.db_client  # Access db_client within the function
+    query = "SELECT * FROM Licni_podaci_korisnika"
+    results = db_client.execute_query(query)
+
+    users = [{'id': row.id, 'ime': row.ime, 'prezime': row.prezime} for row in results]
+    print(users)
+    return jsonify({"message": "Retrieved all users", "users": users}), 200
 
 def create_user():
    # To do
