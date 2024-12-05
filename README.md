@@ -19,8 +19,17 @@ Folder-file arhitektura:
   /engine               # Folder za API logiku
     __init__.py         # Inicijalizacija engine modula
     api.py              # API endpointi
-  /db                   # Folder za baze podataka
+    auth.py             # Endpoint za autentifikaciju
+    friends.py          # Endpoint za prijatelje
+    search.py           # Endpoint za pretragu
+
+  /db                   # Folder za baze podataka, Potencijalan folder koji je visak
     migrations          # (npr. za SQLAlchemy migracije)
+  /database
+    01_create_tables.sql
+    02_seed_data.sql
+    03_indexes.sql
+  .env                  # Potrebno za Docker Image
   config.py             # Konfiguracija aplikacije (dev/prod)
   requirements.txt      # Python dependency-i
   .gitignore            # Ignorisanje nepotrebnih fajlova
