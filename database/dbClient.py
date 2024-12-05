@@ -22,3 +22,21 @@ class DatabaseClient:
             # Wrap the query with `text()` if it's a raw SQL query
             result = db.session.execute(text(sql), params or {})
             return result.fetchall()
+        
+    def begin(self):
+        """
+        Start a transaction in SQLAlchemy.
+        """
+        db.session.begin()  # Begin a new transaction
+
+    def commit(self):
+        """
+        Commit the current transaction.
+        """
+        db.session.commit()
+
+    def rollback(self):
+        """
+        Rollback the current transaction in case of error.
+        """
+        db.session.rollback()
