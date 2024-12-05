@@ -5,7 +5,10 @@ from app.routes import (
     admin_routes,
     notification_routes,
     post_routes,
-    user_profile_routes
+    user_profile_routes,
+    auth_routes,
+    friends_routes,
+    search_routes
 )
 
 def create_app():
@@ -24,6 +27,9 @@ def create_app():
     app.register_blueprint(notification_routes)
     app.register_blueprint(user_profile_routes)
     app.register_blueprint(post_routes)
+    app.register_blueprint(auth_routes)
+    app.register_blueprint(friends_routes)
+    app.register_blueprint(search_routes)
 
     @app.route('/')
     def home():
