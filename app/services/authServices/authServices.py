@@ -2,119 +2,173 @@ from flask import jsonify, request, current_app
 from werkzeug.security import generate_password_hash
 import re
 from sqlalchemy.exc import IntegrityError
-
-def validate_email(email):
-    """Validate email format using regex."""
-    email_regex = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-    return re.match(email_regex, email) is not None
-
+# from utils import JWTManager kaze no module named utils pa cu ovde napraviti klasu jwtManager
+import jwt
 from sqlalchemy.sql import bindparam
+import traceback
+
+
+
+secret_key = "nas_secret_key_koji_bi_trebalo_da_se_nalazi_u_nekom_config_fileu" # da li ovo sluzi da decriptujemo hes iz polja lozinka?
+
+class JWTManager:
+    def __init__(self, algorithm="HS256"):
+        self.secret_key = secret_key
+        self.algorithm = algorithm
+
+    def create_token(self, payload):
+        token = jwt.encode(payload, self.secret_key, algorithm=self.algorithm)
+        return token
+
+    def verify_token(self, token):
+        try:
+            decoded_payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm])
+            return decoded_payload
+        except jwt.InvalidTokenError:
+            raise ValueError("Invalid token")
+
+
+
 
 def register():
-    db_client = current_app.db_client
+    db_client = current_app.db_client  # Pristup bazi podataka
+    # Dohvatanje podataka iz zahteva
     data = request.get_json()
+    ime = data.get("ime")
+    prezime = data.get("prezime")
+    ulica = data.get("ulica")
+    grad = data.get("grad")
+    drzava = data.get("drzava")
+    email = data.get("email")
+    broj_telefona = data.get("broj_telefona")
+    korisnicko_ime = data.get("korisnicko_ime")
+    lozinka = data.get("lozinka")
 
-    # Validate input data
-    required_fields = [
-        'ime', 'prezime', 'ulica', 'grad', 'drzava', 
-        'broj_telefona', 'email', 'korisnicko_ime', 'lozinka', 'tip_korisnika'
-    ]
+    # Provera postojanje email-a i username-a pre registracije
+    check_email_query = "SELECT COUNT(*) FROM Contact_korisnika WHERE Email = :email"
+    email_count = db_client.execute(check_email_query, {"email": email})[0][0]
     
-    for field in required_fields:
-        if not data.get(field):
-            return jsonify({"error": f"Missing required field: {field}"}), 400
+    check_username_query = "SELECT COUNT(*) FROM Nalog_korisnika WHERE Korisnicko_ime = :korisnicko_ime"
+    username_count = db_client.execute(check_username_query, {"korisnicko_ime": korisnicko_ime})[0][0]
 
-    # Email validation
-    if not validate_email(data['email']):
-        return jsonify({"error": "Invalid email format"}), 400
+    if email_count > 0:
+        return jsonify({"error": "Email already exists"}), 400
+    
+    if username_count > 0:
+        return jsonify({"error": "Username already exists"}), 400
+
+    if not all([ime, prezime, ulica, grad, drzava, email, broj_telefona, korisnicko_ime, lozinka]):
+        return jsonify({"error": "All fields are required"}), 400
 
     try:
-        # Check unique constraints for username and email
-        existing_username = db_client.execute_query(
-            "SELECT COUNT(*) FROM Nalog_korisnika WHERE Korisnicko_ime = :username", 
-            {"username": data['korisnicko_ime']}
-        ).scalar_one_or_none()
-        
-        existing_email = db_client.execute_query(
-            "SELECT COUNT(*) FROM Contact_korisnika WHERE Email = :email", 
-            {"email": data['email']}
-        ).scalar_one_or_none()
+        # Start transaction
+        db_client.begin()
 
-        if existing_username:
-            return jsonify({"error": "Username already exists"}), 409
-        
-        if existing_email:
-            return jsonify({"error": "Email already registered"}), 409
+        # 1. Insert into Licni_podaci_korisnika
+        licni_query = "INSERT INTO Licni_podaci_korisnika (ID, Ime, Prezime) VALUES (Licni_podaci_seq.NEXTVAL, :ime, :prezime)"
+        db_client.execute(licni_query, {"ime": ime, "prezime": prezime})
+        licni_id_query = "SELECT Licni_podaci_seq.CURRVAL FROM dual"
+        licni_id = db_client.execute(licni_id_query)[0][0]
 
-        # Start a transaction
-        with db_client.begin() as connection:
-            # Insert personal data and get the generated ID
-            personal_data_insert = """
-            INSERT INTO Licni_podaci_korisnika (ID, Ime, Prezime)
-            VALUES (Licni_podaci_seq.NEXTVAL, :ime, :prezime)
-            RETURNING ID
-            """
-            user_id = connection.execute_query(
-                personal_data_insert, 
-                {'ime': data['ime'], 'prezime': data['prezime']}
-            ).scalar_one()
+        # 2. Insert into Adresa_korisnika
+        adresa_query = "INSERT INTO Adresa_korisnika (ID, Ulica, Grad, Drzava) VALUES (:id, :ulica, :grad, :drzava)"
+        db_client.execute(adresa_query, {"id": licni_id, "ulica": ulica, "grad": grad, "drzava": drzava})
 
-            # Insert address
-            address_insert = """
-            INSERT INTO Adresa_korisnika (ID, Ulica, Grad, Drzava)
-            VALUES (:id, :ulica, :grad, :drzava)
-            """
-            connection.execute_query(address_insert, {
-                'id': user_id,
-                'ulica': data['ulica'],
-                'grad': data['grad'],
-                'drzava': data['drzava']
-            })
+        # 3. Insert into Contact_korisnika
+        contact_query = "INSERT INTO Contact_korisnika (ID, Email, Broj_telefona) VALUES (:id, :email, :broj_telefona)"
+        db_client.execute(contact_query, {"id": licni_id, "email": email, "broj_telefona": broj_telefona})
 
-            # Insert contact information
-            contact_insert = """
-            INSERT INTO Contact_korisnika (ID, Broj_telefona, Email)
-            VALUES (:id, :broj_telefona, :email)
-            """
-            connection.execute_query(contact_insert, {
-                'id': user_id,
-                'broj_telefona': data['broj_telefona'],
-                'email': data['email']
-            })
+        # 4. Insert into Nalog_korisnika
+        # IMPORTANT: In production, use password hashing (e.g., with bcrypt)
+        nalog_query = "INSERT INTO Nalog_korisnika (ID, Korisnicko_ime, Lozinka, Tip_korisnika) VALUES (:id, :korisnicko_ime, :lozinka, 'user')"
+        db_client.execute(nalog_query, {"id": licni_id, "korisnicko_ime": korisnicko_ime, "lozinka": lozinka})
 
-            # Hash password before storing
-            hashed_password = generate_password_hash(data['lozinka'])
+        # Commit the transaction
+        db_client.commit()
 
-            # Insert user account
-            account_insert = """
-            INSERT INTO Nalog_korisnika (ID, Korisnicko_ime, Lozinka, Tip_korisnika, Blokiran)
-            VALUES (:id, :korisnicko_ime, :lozinka, :tip_korisnika, 0)
-            """
-            connection.execute_query(account_insert, {
-                'id': user_id,
-                'korisnicko_ime': data['korisnicko_ime'],
-                'lozinka': hashed_password,
-                'tip_korisnika': data['tip_korisnika']
-            })
+        return jsonify({"message": "User successfully registered", "user_id": licni_id}), 201
 
-        return jsonify({
-            "message": "User registered successfully!", 
-            "user_id": user_id
-        }), 201
-
-    except IntegrityError as e:
-        return jsonify({"error": "Registration failed due to a database constraint"}), 500
     except Exception as e:
+        # Rollback in case of any error
+        db_client.rollback()
+        
         current_app.logger.error(f"Registration error: {str(e)}")
-        return jsonify({"error": "An unexpected error occurred during registration"}), 500
-
-
-
-
+        return jsonify({"error": "Registration failed", "details": str(e)}), 500
 
 
 def login():
-    return jsonify({"message": "Login successful!", "token": "example_token"}), 200
+    db_client = current_app.db_client  # Pristup bazi podataka iz Flask aplikacije
+    jwt_manager = JWTManager()  # Inicijalizacija JWTManager-a
+
+    # Dohvatanje podataka iz zahteva
+    data = request.get_json()
+    korisnicko_ime = data.get("korisnicko_ime")
+    lozinka = data.get("lozinka")
+
+    if not korisnicko_ime:
+        return jsonify({"error": "Korisnicko ime is required"}), 400
+
+    if not lozinka:
+        return jsonify({"error": "Lozinka is required"}), 400
+
+    try:
+        # Provera da li korisnik postoji u bazi na osnovu korisnickog imena
+        query = "SELECT ID, Korisnicko_ime FROM Nalog_korisnika WHERE Korisnicko_ime = :korisnicko_ime"
+        result = db_client.execute_query(query, {"korisnicko_ime": korisnicko_ime})
+
+        if not result:
+            return jsonify({"error": "User does not exist"}), 404
+
+        user = result[0]  # Pretpostavka je da se korisnicko_ime vrednost ne ponavlja zbog UNIQUE ključa
+
+        # Generisanje JWT tokena
+        payload = {"user_id": user.id, "korisnicko_ime": user.korisnicko_ime}
+        token = jwt_manager.create_token(payload)
+
+        return jsonify({"message": "User found", "user_id": user.id, "korisnicko_ime": user.korisnicko_ime, "token": token}), 200
+
+    except Exception as e:
+        # Obrada grešaka
+        current_app.logger.error(f"Error during login: {e}")
+        return jsonify({"error": "Internal server error"}), 500
+
 
 def logout():
-    return jsonify({"message": "Logout successful!"}), 200
+    """
+    Simulacija odjavljivanja korisnika.
+    Klijent je odgovoran da prestane koristiti token nakon uspešnog logout-a.
+    """
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return jsonify({"error": "Authorization token is missing or invalid"}), 401
+
+    return jsonify({"message": "User successfully logged out"}), 200
+
+
+
+
+# verzija sa blacklistom kao novom tabelom
+"""
+def logout():
+    db_client = current_app.db_client  # Pristup bazi podataka
+    jwt_manager = JWTManager()  # Inicijalizacija JWTManager-a
+
+    # Dohvatanje tokena iz zaglavlja
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return jsonify({"error": "Authorization token is missing or invalid"}), 401
+
+    token = auth_header.split(" ")[1]
+
+    try:
+        # Dodavanje tokena u blacklist (primer sa bazom podataka)
+        query = "INSERT INTO TokenBlacklist (token) VALUES (:token)"
+        db_client.execute_query(query, {"token": token})
+
+        return jsonify({"message": "User successfully logged out"}), 200
+
+    except Exception as e:
+        # Obrada grešaka
+        current_app.logger.error(f"Error during logout: {e}")
+        return jsonify({"error": "Internal server error"}), 500
+"""

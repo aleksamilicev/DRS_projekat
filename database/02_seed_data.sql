@@ -1,5 +1,5 @@
 -- Unos inicijalnih podataka za Licni_podaci_korisnika
-INSERT INTO Licni_podaci_korisnika (ID, Ime, Prezime)d
+INSERT INTO Licni_podaci_korisnika (ID, Ime, Prezime)
 VALUES (Licni_podaci_seq.NEXTVAL, 'Marko', 'Markovic');
 INSERT INTO Licni_podaci_korisnika (ID, Ime, Prezime)
 VALUES (Licni_podaci_seq.NEXTVAL, 'Jovana', 'Jovanovic');

@@ -40,3 +40,19 @@ class DatabaseClient:
         Rollback the current transaction in case of error.
         """
         db.session.rollback()
+        
+
+    def execute(self, sql, params=None):
+        """
+        Executes an SQL query and returns the result.
+        :param sql: SQL query as a string.
+        :param params: Parameters for the query (list or tuple).
+        :return: List of results for SELECT, or None for non-SELECT queries.
+        """
+        with self.app.app_context():
+            result = db.session.execute(text(sql), params or {})
+            if sql.strip().upper().startswith("SELECT"):  # Only process results for SELECT queries
+                return result.fetchall()
+            else:
+                db.session.commit()  # Commit if it's a DML statement (INSERT, UPDATE, DELETE)
+                return None  # No result expected for non-SELECT queries
