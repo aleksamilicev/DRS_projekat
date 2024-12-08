@@ -1,6 +1,10 @@
 from flask import Flask
 from database.config import Config
 from database.dbClient import DatabaseClient
+import jwt
+from flask_jwt_extended import JWTManager
+
+
 from app.routes import (
     admin_routes,
     notification_routes,
@@ -16,9 +20,18 @@ def create_app():
     app.config.from_object(Config)
     app.config['SECRET_KEY'] = 'your_secret_key'
 
+
+# JWT konfiguracija
+    app.config['JWT_SECRET_KEY'] = 'nas_secret_key_koji_bi_trebalo_da_se_nalazi_u_nekom_config_fileu'  # Zameni 'your_jwt_secret_key' pravim ključem
+    app.config['JWT_TOKEN_LOCATION'] = ['headers']  # Token će se tražiti u headerima
+    app.config['JWT_HEADER_NAME'] = 'Authorization'  # Default je "Authorization"
+    app.config['JWT_HEADER_TYPE'] = 'Bearer'  # Default je "Bearer"
+
+    # Inicijalizacija JWTManager-a
+    jwt = JWTManager(app)
     
+
     db_client = DatabaseClient(app)
-    
     # Attach db_client to the app
     app.db_client = db_client
 

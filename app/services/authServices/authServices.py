@@ -1,4 +1,5 @@
 from flask import jsonify, request, current_app
+from flask_jwt_extended import create_access_token
 from werkzeug.security import generate_password_hash
 import re
 from sqlalchemy.exc import IntegrityError
@@ -122,8 +123,7 @@ def login():
         user = result[0]  # Pretpostavka je da se korisnicko_ime vrednost ne ponavlja zbog UNIQUE ključa
 
         # Generisanje JWT tokena
-        payload = {"user_id": user.id, "korisnicko_ime": user.korisnicko_ime}
-        token = jwt_manager.create_token(payload)
+        token = create_access_token(identity=str(user.id))
 
         return jsonify({"message": "User found", "user_id": user.id, "korisnicko_ime": user.korisnicko_ime, "token": token}), 200
 
