@@ -33,7 +33,6 @@ def get_current_user_id():
         current_app.logger.error(f"Error getting current user ID: {e}")
         return None
 
-
 @jwt_required()  # Obezbeđuje da se JWT token validira pre poziva funkcije
 def get_friends():
     db_client = current_app.db_client  # Access to the database from the Flask application
@@ -58,18 +57,17 @@ def get_friends():
         FROM 
             Prijateljstva p
         JOIN 
-            Nalog_korisnika nk ON 
-            (p.ID_Korisnika1 = :user_id OR p.ID_Korisnika2 = :user_id)
+            Licni_podaci_korisnika lpk 
+            ON (CASE 
+                    WHEN p.ID_Korisnika1 = :user_id THEN p.ID_Korisnika2
+                    ELSE p.ID_Korisnika1
+                END) = lpk.ID
         JOIN 
-            Licni_podaci_korisnika lpk ON 
-            (CASE 
-                WHEN p.ID_Korisnika1 = :user_id THEN p.ID_Korisnika2
-                ELSE p.ID_Korisnika1
-            END) = lpk.ID
-        JOIN 
-            Contact_korisnika ck ON lpk.ID = ck.ID
+            Contact_korisnika ck 
+            ON lpk.ID = ck.ID
         WHERE 
-            p.Status = 'Accepted'
+            (p.ID_Korisnika1 = :user_id OR p.ID_Korisnika2 = :user_id) 
+            AND p.Status = 'Accepted'
         """
         
         # Execute the query
@@ -104,15 +102,46 @@ def get_friends():
 
 
 
+@jwt_required()
+def get_friend_requests():
+    db_client = current_app.db_client
+    try:
+        # Dohvatanje ID-a trenutnog korisnika
+        current_user_id = get_jwt_identity()
+
+        # Upit za dobijanje liste zahteva za prijateljstvo
+        query = """
+        SELECT f.ID, f.ID_Korisnika1, u.Korisnicko_ime, p.Ime, p.Prezime
+        FROM Prijateljstva f
+        JOIN Nalog_korisnika u ON f.ID_Korisnika1 = u.ID
+        JOIN Licni_podaci_korisnika p ON f.ID_Korisnika1 = p.ID
+        WHERE f.ID_Korisnika2 = :current_user_id AND f.Status = 'Pending'
+        """
+        friend_requests = db_client.execute_query(query, {"current_user_id": current_user_id})
+
+        # Formatiranje rezultata u JSON
+        requests_list = [
+            {
+                "request_id": row[0],
+                "user_id": row[1],
+                "username": row[2],
+                "first_name": row[3],
+                "last_name": row[4]
+            }
+            for row in friend_requests
+        ]
+
+        return jsonify({"friend_requests": requests_list}), 200
+
+    except Exception as e:
+        current_app.logger.error(f"Error fetching friend requests: {str(e)}")
+        return jsonify({"error": "Failed to fetch friend requests"}), 500
+
+
+
 
 def send_friend_request(user_id):
     return jsonify({"message": f"Friend request sent to user {user_id}!"}), 201
-
-
-
-
-def get_friend_requests():
-    return jsonify({"message": "List of friend requests"}), 200
 
 
 
@@ -125,8 +154,6 @@ def accept_friend_request(request_id):
 
 def reject_friend_request(request_id):
     return jsonify({"message": f"Friend request {request_id} rejected!"}), 200
-
-
 
 
 
