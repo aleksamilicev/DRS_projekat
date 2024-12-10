@@ -139,9 +139,49 @@ def get_friend_requests():
 
 
 
-
+@jwt_required()
 def send_friend_request(user_id):
-    return jsonify({"message": f"Friend request sent to user {user_id}!"}), 201
+    db_client = current_app.db_client
+    try:
+        # Dohvatanje ID-a trenutnog korisnika
+        current_user_id = get_jwt_identity()
+
+        # Provera da li korisnik sa datim user_id postoji
+        query_check_user = "SELECT COUNT(*) FROM Nalog_korisnika WHERE ID = :user_id"
+        user_exists = db_client.execute_query(query_check_user, {"user_id": user_id})[0][0]
+
+        if user_exists == 0:
+            return jsonify({"error": f"User with ID {user_id} does not exist"}), 404
+
+        # Provera da li već postoji prijateljstvo ili zahtev
+        query_check_friendship = """
+        SELECT COUNT(*) 
+        FROM Prijateljstva 
+        WHERE (ID_Korisnika1 = :current_user_id AND ID_Korisnika2 = :user_id) 
+           OR (ID_Korisnika1 = :user_id AND ID_Korisnika2 = :current_user_id)
+        """
+        existing_relationship = db_client.execute_query(
+            query_check_friendship, 
+            {"current_user_id": current_user_id, "user_id": user_id}
+        )[0][0]
+
+        if existing_relationship > 0:
+            return jsonify({"error": "Friend request already sent or users are already friends"}), 400
+
+        # Kreiranje novog zahteva za prijateljstvo
+        insert_query = """
+        INSERT INTO Prijateljstva (ID, ID_Korisnika1, ID_Korisnika2, Status)
+        VALUES (Prijateljstva_seq.NEXTVAL, :current_user_id, :user_id, 'Pending')
+        """
+        # current_user_id = 4(ulogovan sam kao ana) i zahtev sam poslao na user_id = 2(zahtev je poslalti jovani)
+        db_client.execute(insert_query, {"current_user_id": current_user_id, "user_id": user_id})
+
+        return jsonify({"message": "Friend request sent successfully"}), 201
+
+    except Exception as e:
+        current_app.logger.error(f"Error sending friend request: {str(e)}")
+        return jsonify({"error": "Failed to send friend request"}), 500
+
 
 
 
