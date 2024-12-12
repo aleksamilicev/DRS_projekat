@@ -186,17 +186,138 @@ def send_friend_request(user_id):
 
 
 
+@jwt_required()
 def accept_friend_request(request_id):
-    return jsonify({"message": f"Friend request {request_id} accepted!"}), 200
+    db_client = current_app.db_client
+    
+    try:
+        # Get the current user's ID from the JWT token
+        current_user_id = get_jwt_identity()
+        
+        # First, verify the friend request exists and is intended for the current user
+        verify_query = """
+        SELECT ID_Korisnika1, ID_Korisnika2, Status 
+        FROM Prijateljstva 
+        WHERE ID_Korisnika1 = :request_id 
+        AND ID_Korisnika2 = :current_user_id 
+        AND Status = 'Pending'
+        """
+        
+        friend_request = db_client.execute_query(
+            verify_query, 
+            {"request_id": request_id, "current_user_id": current_user_id}
+        )
+        
+        # Check if the friend request exists
+        if not friend_request:
+            return jsonify({
+                "error": "Friend request not found or already processed"
+            }), 404
+        
+        # Update the friend request status to 'Accepted'
+        update_query = """
+        UPDATE Prijateljstva 
+        SET Status = 'Accepted' 
+        WHERE ID_Korisnika1 = :request_id
+        """
+        
+        db_client.execute(update_query, {"request_id": request_id})
+        
+        return jsonify({
+            "message": "Friend request accepted successfully"
+        }), 200
+    
+    except Exception as e:
+        current_app.logger.error(f"Error accepting friend request: {str(e)}")
+        return jsonify({"error": "Failed to accept friend request"}), 500
 
 
 
 
+@jwt_required()
 def reject_friend_request(request_id):
-    return jsonify({"message": f"Friend request {request_id} rejected!"}), 200
+    db_client = current_app.db_client
+    
+    try:
+        # Get the current user's ID from the JWT token
+        current_user_id = get_jwt_identity()
+        
+        # First, verify the friend request exists and is intended for the current user
+        verify_query = """
+        SELECT ID_Korisnika1, ID_Korisnika2, Status 
+        FROM Prijateljstva 
+        WHERE ID_Korisnika1 = :request_id 
+        AND ID_Korisnika2 = :current_user_id 
+        AND Status = 'Pending'
+        """
+        
+        friend_request = db_client.execute_query(
+            verify_query, 
+            {"request_id": request_id, "current_user_id": current_user_id}
+        )
+        
+        # Check if the friend request exists
+        if not friend_request:
+            return jsonify({
+                "error": "Friend request not found or already processed"
+            }), 404
+        
+        # Update the friend request status to 'Accepted'
+        update_query = """
+        UPDATE Prijateljstva 
+        SET Status = 'Rejected' 
+        WHERE ID_Korisnika1 = :request_id
+        """
+        
+        db_client.execute(update_query, {"request_id": request_id})
+        
+        return jsonify({
+            "message": "Friend request rejected successfully"
+        }), 200
+    
+    except Exception as e:
+        current_app.logger.error(f"Error rejecting friend request: {str(e)}")
+        return jsonify({"error": "Failed to reject friend request"}), 500
 
 
 
 
+@jwt_required()
 def delete_friend(friend_id):
-    return jsonify({"message": f"Friend {friend_id} deleted!"}), 200
+    db_client = current_app.db_client
+    try:
+        # Dohvatanje ID-a trenutnog korisnika
+        current_user_id = get_jwt_identity()
+
+        # Provera da li je prijateljstvo već uspostavljeno
+        check_query = """
+        SELECT ID
+        FROM Prijateljstva
+        WHERE 
+            (ID_Korisnika1 = :current_user_id AND ID_Korisnika2 = :friend_id)
+            OR (ID_Korisnika1 = :friend_id AND ID_Korisnika2 = :current_user_id)
+            AND Status = 'Accepted'
+        """
+        friendship = db_client.execute_query(
+            check_query, {"current_user_id": current_user_id, "friend_id": friend_id}
+        )
+
+        if not friendship:
+            return jsonify({"error": "Friendship not found or not accepted"}), 404
+
+        # Brisanje prijateljstva
+        delete_query = """
+        DELETE FROM Prijateljstva
+        WHERE 
+            (ID_Korisnika1 = :current_user_id AND ID_Korisnika2 = :friend_id)
+            OR (ID_Korisnika1 = :friend_id AND ID_Korisnika2 = :current_user_id)
+        """
+        db_client.execute(
+            delete_query, {"current_user_id": current_user_id, "friend_id": friend_id}
+        )
+
+        return jsonify({"message": "Friend deleted successfully"}), 200
+
+    except Exception as e:
+        current_app.logger.error(f"Error deleting friend: {str(e)}")
+        return jsonify({"error": "Failed to delete friend"}), 500

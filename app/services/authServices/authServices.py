@@ -114,8 +114,8 @@ def login():
 
     try:
         # Provera da li korisnik postoji u bazi na osnovu korisnickog imena
-        query = "SELECT ID, Korisnicko_ime FROM Nalog_korisnika WHERE Korisnicko_ime = :korisnicko_ime"
-        result = db_client.execute_query(query, {"korisnicko_ime": korisnicko_ime})
+        query = "SELECT ID, Korisnicko_ime FROM Nalog_korisnika WHERE Korisnicko_ime = :korisnicko_ime AND Lozinka = :lozinka"
+        result = db_client.execute_query(query, {"korisnicko_ime": korisnicko_ime, "lozinka": lozinka})
 
         if not result:
             return jsonify({"error": "User does not exist"}), 404
