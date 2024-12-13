@@ -56,3 +56,4 @@ class DatabaseClient:
             else:
                 db.session.commit()  # Commit if it's a DML statement (INSERT, UPDATE, DELETE)
                 return None  # No result expected for non-SELECT queries
+            
