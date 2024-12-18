@@ -11,7 +11,7 @@ admin_routes = Blueprint('admin', __name__)
 
 # admin routes
 admin_routes.add_url_rule('/admin/users', view_func=get_all_users, methods=['GET'])
-admin_routes.add_url_rule('/admin/users', view_func=create_user, methods=['POST'])
+# admin_routes.add_url_rule('/admin/users', view_func=create_user, methods=['POST'])
 admin_routes.add_url_rule('/admin/users/<int:user_id>/block', view_func=block_user, methods=['POST'])
 admin_routes.add_url_rule('/admin/users/<int:user_id>/unblock', view_func=unblock_user, methods=['POST'])
 admin_routes.add_url_rule('/admin/posts/pending', view_func=get_pending_posts, methods=['GET'])

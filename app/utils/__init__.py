@@ -1,1 +1,5 @@
-from JWTManager import JWTManager
+from .JWTManager import JWTManager
+
+__all__ = [
+    "JWTManager",
+]
