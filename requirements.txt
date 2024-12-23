@@ -12,3 +12,7 @@ alter table za Nalog_korisnika:
 
 "ALTER TABLE Nalog_korisnika
 ADD post_rejected NUMBER DEFAULT 0;"
+
+zbog hasiranja pasworda 
+"ALTER TABLE Nalog_korisnika
+MODIFY Lozinka VARCHAR2(255);"

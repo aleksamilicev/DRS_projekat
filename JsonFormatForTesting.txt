@@ -1,0 +1,17 @@
+Json for registering
+{
+    "ime" : "Slavko",
+    "prezime" : "Ljubojevic",
+    "ulica" : "ulica",
+    "grad" : "BN",
+    "drzava" : "drzava",
+    "email" : "email1222@gmail.com",
+    "broj_telefona" : "065235805",
+    "korisnicko_ime" : "slavko3",
+    "lozinka" : "1234"
+}
+Json for login
+{
+    "korisnicko_ime" : "slavko3",
+    "lozinka" : "1234"
+}

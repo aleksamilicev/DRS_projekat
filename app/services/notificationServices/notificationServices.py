@@ -94,7 +94,7 @@ def get_notification_by_id(notification_id):
                 JOIN Sadrzaj_notifikacije s ON n.ID = s.Osnovni_podaci_ID
                 WHERE n.ID = :notification_id
             """
-            result = db_client.execute(query, {"notification_id": notification_id}).fetchone()
+            result = db_client.execute(query, {"notification_id": notification_id})
             
             if result:
                 notification = {
