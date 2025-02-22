@@ -4,5 +4,6 @@ class Config:
         #"oracle+cx_oracle://Username:Password@localhost:1521/?service_name=ServiceName)"
         "oracle+cx_oracle://Slavko:ftn@localhost:1521/?service_name=xepdb1"
     )  
-    SQLALCHEMY_TRACK_MODIFICATIONS = False  # Suppress warnings
-    SQLALCHEMY_ECHO = False  # Optional: True to log SQL queries
+    SQLALCHEMY_TRACK_MODIFICATIONS = False 
+    SQLALCHEMY_ECHO = False  
+    

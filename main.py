@@ -3,7 +3,7 @@ from database.config import Config
 from database.dbClient import DatabaseClient
 import jwt
 from flask_jwt_extended import JWTManager
-
+from app.utils import send_email
 
 from app.routes import (
     admin_routes,
@@ -19,7 +19,7 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
     app.config['SECRET_KEY'] = 'your_secret_key'
-
+    
 
 # JWT konfiguracija
     app.config['JWT_SECRET_KEY'] = 'nas_secret_key_koji_bi_trebalo_da_se_nalazi_u_nekom_config_fileu'  # Zameni 'your_jwt_secret_key' pravim ključem
@@ -52,5 +52,6 @@ def create_app():
 
 
 if __name__ == '__main__':
+    send_email("playergame854@gmail.com", "ASS")
     app = create_app()
     app.run(debug=True)

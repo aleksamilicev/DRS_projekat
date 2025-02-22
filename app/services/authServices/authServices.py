@@ -3,6 +3,9 @@ from flask_jwt_extended import create_access_token
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy.exc import IntegrityError
 import traceback
+from ...utils import send_email
+from ...utils import EmailText
+from datetime import timedelta
 
 def register():
     db_client = current_app.db_client
@@ -57,11 +60,13 @@ def register():
             {"id": licni_id, "email": email, "broj_telefona": broj_telefona}
         )
         db_client.execute(
-            "INSERT INTO Nalog_korisnika (ID, Korisnicko_ime, Lozinka, Tip_korisnika) VALUES (:id, :korisnicko_ime, :lozinka, 'user')",
+            "INSERT INTO Nalog_korisnika (ID, Korisnicko_ime, Lozinka, Tip_korisnika) VALUES (:id, :korisnicko_ime, :lozinka, 'pendding')",
             {"id": licni_id, "korisnicko_ime": korisnicko_ime, "lozinka": hashed_password}
         )
 
         db_client.commit()
+        
+        send_email(email, EmailText.EmailText.register_pending(korisnicko_ime))
         return jsonify({"message": "User successfully registered", "user_id": licni_id}), 201
 
     except Exception as e:
@@ -94,7 +99,11 @@ def login():
         return jsonify({"error": "Invalid username or password"}), 401
 
     # Generate JWT token
-    access_token = create_access_token(identity=str(user_id), additional_claims={"username": korisnicko_ime})
+    access_token = create_access_token(
+    identity=str(user_id),
+    additional_claims={"username": korisnicko_ime},
+    expires_delta=timedelta(days=30)  # Set token expiration to 30 days
+)
 
     return jsonify({"token": access_token}), 200
 

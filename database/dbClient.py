@@ -55,5 +55,5 @@ class DatabaseClient:
                 return result.fetchall()
             else:
                 db.session.commit()  # Commit if it's a DML statement (INSERT, UPDATE, DELETE)
-                return None  # No result expected for non-SELECT queries
+                return result.rowcount  # No result expected for non-SELECT queries
             

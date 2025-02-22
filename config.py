@@ -12,4 +12,8 @@ class Config:
     SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL', 'sqlite:///app.db') # Zameniti SQLite sa pravim DB URI ako koristimo neku drugu bazu
     DEBUG = True    # Postavi na False u produkciji
     TESTING = False
+    EMAIL = "drsprojekat7@gmail.com"
+    PASSWORD = "xawn eixn kcsd blri"
+    SMTP_SERVER = "smtp.gmail.com"  
+    SMTP_PORT = 587
 
