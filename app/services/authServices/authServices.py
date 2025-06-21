@@ -84,7 +84,7 @@ def login():
     if not korisnicko_ime or not lozinka:
         return jsonify({"error": "Username and password are required"}), 400
 
-    query = "SELECT ID, Korisnicko_ime, Lozinka FROM Nalog_korisnika WHERE Korisnicko_ime = :korisnicko_ime"
+    query = "SELECT ID, Korisnicko_ime, Lozinka, tip_korisnika  FROM Nalog_korisnika WHERE Korisnicko_ime = :korisnicko_ime"
     result = db_client.execute(query, {"korisnicko_ime": korisnicko_ime})
 
     if not result:
@@ -92,8 +92,9 @@ def login():
 
     user = result[0]
     user_id = user[0]
+    username = user[1]
     db_password = user[2]
-
+    user_role = user[3]
     # Verify the password
     if not check_password_hash(db_password, lozinka):
         return jsonify({"error": "Invalid username or password"}), 401
@@ -101,7 +102,7 @@ def login():
     # Generate JWT token
     access_token = create_access_token(
     identity=str(user_id),
-    additional_claims={"username": korisnicko_ime},
+    additional_claims={"username": korisnicko_ime, "role":user_role},
     expires_delta=timedelta(days=30)  # Set token expiration to 30 days
 )
 

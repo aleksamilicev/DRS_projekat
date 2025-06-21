@@ -4,6 +4,7 @@ from database.dbClient import DatabaseClient
 import jwt
 from flask_jwt_extended import JWTManager
 from app.utils import send_email
+from flask_cors import CORS
 
 from app.routes import (
     admin_routes,
@@ -47,11 +48,10 @@ def create_app():
     @app.route('/')
     def home():
         return "Hello, Flask!"
-
+    CORS(app)
     return app
 
 
 if __name__ == '__main__':
-    send_email("playergame854@gmail.com", "ASS")
     app = create_app()
     app.run(debug=True)

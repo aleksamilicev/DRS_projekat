@@ -5,22 +5,7 @@ import jwt
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
 
-secret_key = "nas_secret_key_koji_bi_trebalo_da_se_nalazi_u_nekom_config_fileu" # da li ovo sluzi da decriptujemo hes iz polja lozinka?
-class JWTManager:
-    def __init__(self, algorithm="HS256"):
-        self.secret_key = secret_key
-        self.algorithm = algorithm
 
-    def create_token(self, payload):
-        token = jwt.encode(payload, self.secret_key, algorithm=self.algorithm)
-        return token
-
-    def verify_token(self, token):
-        try:
-            decoded_payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm])
-            return decoded_payload
-        except jwt.InvalidTokenError:
-            raise ValueError("Invalid token")
 
 
 

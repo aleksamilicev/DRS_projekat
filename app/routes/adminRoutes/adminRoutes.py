@@ -7,10 +7,11 @@ from ...services.adminServices.adminServices import (
     unblock_user, 
     get_pending_posts, 
     approve_post,
-    get_pending_registration,
     accept_registration,
     reject_registration,
-    reject_post )
+    reject_post,
+    get_pending_registrations
+    )
 admin_routes = Blueprint('admin', __name__)
 
 # admin routes
@@ -23,6 +24,6 @@ admin_routes.add_url_rule('/admin/posts/pending', view_func=get_pending_posts, m
 admin_routes.add_url_rule('/admin/posts/<int:post_id>/approve', view_func=approve_post, methods=['POST'])
 admin_routes.add_url_rule('/admin/posts/<int:post_id>/reject', view_func=reject_post, methods=['POST'])
 
-admin_routes.add_url_rule('/admin/registration/<int:user_id>/pending', view_func=get_pending_registration, methods=['GET'])
+admin_routes.add_url_rule('/admin/registration/<int:user_id>/pending', view_func=get_pending_registrations, methods=['GET'])
 admin_routes.add_url_rule('/admin/registration/<int:user_id>/accept', view_func=accept_registration, methods=['POST'])
 admin_routes.add_url_rule('/admin/registration/<int:user_id>/reject', view_func=reject_registration, methods=['POST'])
