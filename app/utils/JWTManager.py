@@ -38,16 +38,18 @@ class JWTManager:
         """
         Check if the user making the request is an admin.
         """
+        
         try:
             # Extract the JWT payload
             token_payload = get_jwt()
+            
 
             # Get the user ID (identity) from the token payload
             user_id = token_payload.get("sub")  # `sub` is the standard claim for `identity`
+            
 
             if not user_id:
                 raise PermissionError("Invalid token payload: missing user ID")
-
             # Query to check if the user is an admin
             query = "SELECT Tip_korisnika FROM Nalog_korisnika WHERE ID = :user_id"
             result = db_client.execute_query(query, {"user_id": user_id})

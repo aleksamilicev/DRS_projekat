@@ -14,7 +14,9 @@ class EmailText:
         DRS Projekat Team
         """
 
-    
+    def first_time_login_notification(username):
+        return f"User '{username}' has logged into the system for the first time. Please review their activity if needed."
+
     def register_approved(user: str):
         return f"""
         Dear {user},

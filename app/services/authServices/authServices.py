@@ -60,7 +60,7 @@ def register():
             {"id": licni_id, "email": email, "broj_telefona": broj_telefona}
         )
         db_client.execute(
-            "INSERT INTO Nalog_korisnika (ID, Korisnicko_ime, Lozinka, Tip_korisnika) VALUES (:id, :korisnicko_ime, :lozinka, 'pendding')",
+            "INSERT INTO Nalog_korisnika (ID, Korisnicko_ime, Lozinka, Tip_korisnika) VALUES (:id, :korisnicko_ime, :lozinka, 'pending')",
             {"id": licni_id, "korisnicko_ime": korisnicko_ime, "lozinka": hashed_password}
         )
 
@@ -74,8 +74,77 @@ def register():
         current_app.logger.error(f"Registration error: {str(e)}")
         return jsonify({"error": "Registration failed", "details": str(e)}), 500
 
-
 def login():
+    db_client = current_app.db_client
+    data = request.get_json()
+    korisnicko_ime = data.get("korisnicko_ime")
+    lozinka = data.get("lozinka")
+
+    if not korisnicko_ime or not lozinka:
+        return jsonify({"error": "Username and password are required"}), 400
+
+    query = """
+        SELECT ID, Korisnicko_ime, Lozinka, Tip_korisnika, BLOKIRAN, FIRST_TIME_LOGIN
+        FROM Nalog_korisnika
+        WHERE Korisnicko_ime = :korisnicko_ime
+    """
+    result = db_client.execute(query, {"korisnicko_ime": korisnicko_ime})
+
+    if not result:
+        return jsonify({"error": "Invalid username or password"}), 401
+
+    user = result[0]
+    user_id = user[0]
+    username = user[1]
+    db_password = user[2]
+    user_role = user[3]
+    blokiran = user[4]
+    first_time_login = user[5]
+    if user_role == "pending":
+        return jsonify({"error": "Your account is not accepted by the admin yet."}), 403
+
+    if blokiran == 1:
+        return jsonify({"error": "Your account is blocked."}), 403
+
+    if not check_password_hash(db_password, lozinka):
+        return jsonify({"error": "Invalid username or password"}), 401
+
+    # If first time login, notify all admins
+    if first_time_login == 1:
+        admin_email_query = """
+            SELECT ck.Email
+            FROM Nalog_korisnika nk
+            JOIN Contact_korisnika ck ON nk.ID = ck.ID
+            WHERE nk.Tip_korisnika = 'admin'
+        """
+        admin_emails = db_client.execute_query(admin_email_query)
+
+        for row in admin_emails:
+            email = row[0]
+            if email:
+                send_email(
+                    email,
+                    EmailText.EmailText.first_time_login_notification(username)
+                )
+
+        # Update FIRST_TIME_LOGIN to 0
+        update_query = """
+            UPDATE Nalog_korisnika
+            SET FIRST_TIME_LOGIN = 0
+            WHERE ID = :user_id
+        """
+        db_client.execute(update_query, {"user_id": user_id})
+
+    # Generate JWT 
+    access_token = create_access_token(
+        identity=str(user_id),
+        additional_claims={"username": korisnicko_ime, "role": user_role},
+        expires_delta=timedelta(days=30)
+    )
+
+    return jsonify({"token": access_token}), 200
+
+"""def login():
     db_client = current_app.db_client
     data = request.get_json()
     korisnicko_ime = data.get("korisnicko_ime")
@@ -108,81 +177,7 @@ def login():
 
     return jsonify({"token": access_token}), 200
 
+"""
 def logout():
     
     return jsonify({"message": "User successfully logged out"}), 200
-
-#     """
-#     Simulacija odjavljivanja korisnika.
-#     Klijent je odgovoran da prestane koristiti token nakon uspešnog logout-a.
-#     """
-#     auth_header = request.headers.get("Authorization")
-#     if not auth_header or not auth_header.startswith("Bearer "):
-#         return jsonify({"error": "Authorization token is missing or invalid"}), 401
-
-#     return jsonify({"message": "User successfully logged out"}), 200
-
-
-
-
-# # verzija sa blacklistom kao novom tabelom
-# """
-# def logout():
-#     db_client = current_app.db_client  # Pristup bazi podataka
-#     jwt_manager = JWTManager()  # Inicijalizacija JWTManager-a
-
-#     # Dohvatanje tokena iz zaglavlja
-#     auth_header = request.headers.get("Authorization")
-#     if not auth_header or not auth_header.startswith("Bearer "):
-#         return jsonify({"error": "Authorization token is missing or invalid"}), 401
-
-#     token = auth_header.split(" ")[1]
-
-#     try:
-#         # Dodavanje tokena u blacklist (primer sa bazom podataka)
-#         query = "INSERT INTO TokenBlacklist (token) VALUES (:token)"
-#         db_client.execute_query(query, {"token": token})
-
-#         return jsonify({"message": "User successfully logged out"}), 200
-
-#     except Exception as e:
-#         # Obrada grešaka
-#         current_app.logger.error(f"Error during logout: {e}")
-#         return jsonify({"error": "Internal server error"}), 500
-# """
-
-
-# def login():
-#     db_client = current_app.db_client  # Pristup bazi podataka iz Flask aplikacije
-#     jwt_manager = JWTManager()  # Inicijalizacija JWTManager-a
-
-#     # Dohvatanje podataka iz zahteva
-#     data = request.get_json()
-#     korisnicko_ime = data.get("korisnicko_ime")
-#     lozinka = data.get("lozinka")
-
-#     if not korisnicko_ime:
-#         return jsonify({"error": "Korisnicko ime is required"}), 400
-
-#     if not lozinka:
-#         return jsonify({"error": "Lozinka is required"}), 400
-
-#     try:
-#         # Provera da li korisnik postoji u bazi na osnovu korisnickog imena
-#         query = "SELECT ID, Korisnicko_ime FROM Nalog_korisnika WHERE Korisnicko_ime = :korisnicko_ime AND Lozinka = :lozinka"
-#         result = db_client.execute_query(query, {"korisnicko_ime": korisnicko_ime, "lozinka": lozinka})
-
-#         if not result:
-#             return jsonify({"error": "User does not exist"}), 404
-
-#         user = result[0]  # Pretpostavka je da se korisnicko_ime vrednost ne ponavlja zbog UNIQUE ključa
-
-#         # Generisanje JWT tokena
-#         token = create_access_token(identity=str(user.id))
-
-#         return jsonify({"message": "User found", "user_id": user.id, "korisnicko_ime": user.korisnicko_ime, "token": token}), 200
-
-#     except Exception as e:
-#         # Obrada grešaka
-#         current_app.logger.error(f"Error during login: {e}")
-#         return jsonify({"error": "Internal server error"}), 500

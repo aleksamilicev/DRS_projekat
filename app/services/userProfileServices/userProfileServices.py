@@ -197,6 +197,7 @@ def get_user_profile(user_id):
             nk.Korisnicko_ime, 
             nk.Tip_korisnika, 
             nk.Blokiran
+            nk.PROFILE_PICTURE_URL
         FROM Licni_podaci_korisnika lpk
         LEFT JOIN Adresa_korisnika ak ON lpk.ID = ak.ID
         LEFT JOIN Contact_korisnika ck ON lpk.ID = ck.ID
@@ -226,6 +227,7 @@ def get_user_profile(user_id):
                 "username": result[0][8],
                 "user_type": result[0][9],
                 "blocked": bool(result[0][10]),
+                "profile_picture_url": result[0][11],
             }
         }
         return jsonify(user_data), 200
