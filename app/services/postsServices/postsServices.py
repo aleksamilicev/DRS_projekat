@@ -79,8 +79,12 @@ def create_post():
             
             # Save image to a specific directory
             filename = secure_filename(image.filename)
-            image_path = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
-            image.save(image_path)
+            upload_folder = current_app.config['UPLOAD_FOLDER']
+            os.makedirs(upload_folder, exist_ok=True)
+            image.save(os.path.join(upload_folder, filename))
+            image_path = f"/static/uploads/{filename}"
+
+            
         
         # Begin database transaction
         insert_basic_data_query = """

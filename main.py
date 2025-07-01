@@ -1,3 +1,4 @@
+import os
 from flask import Flask
 from database.config import Config
 from database.dbClient import DatabaseClient
@@ -5,6 +6,7 @@ import jwt
 from flask_jwt_extended import JWTManager
 from app.utils import send_email
 from flask_cors import CORS
+from flask import send_from_directory
 
 from app.routes import (
     admin_routes,
@@ -20,6 +22,11 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
     app.config['SECRET_KEY'] = 'your_secret_key'
+    app.config['UPLOAD_FOLDER'] = os.path.join(os.getcwd(), 'uploads')
+
+    @app.route('/static/uploads/<filename>')
+    def uploaded_file(filename):
+        return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
     
 
 # JWT konfiguracija

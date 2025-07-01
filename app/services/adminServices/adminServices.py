@@ -1,3 +1,4 @@
+import os
 from flask import jsonify, request, current_app
 from app.utils import JWTManager
 from flask_jwt_extended import jwt_required
@@ -219,6 +220,18 @@ def unblock_user(user_id):
     except Exception as e:
         return jsonify({"error": "Failed to unblock the user", "details": str(e)}), 500
 
+
+def normalize_image_path(path):
+    if not path:
+        return None
+    if path.startswith('/'):
+        # već relativna putanja
+        return request.host_url.rstrip('/') + path
+    else:
+        # pretpostavljamo da je apsolutna putanja na disku, izvuci samo ime fajla i napravi relativnu putanju
+        filename = os.path.basename(path)
+        return request.host_url.rstrip('/') + '/static/uploads/' + filename
+
 @jwt_required()
 def get_all_posts():
    
@@ -246,7 +259,7 @@ def get_all_posts():
         posts = [{
             'post_id': row[0],
             'content': row[1],
-            'image': row[2],
+            'image': normalize_image_path(row[2]),
             'username': row[3],
             'profile_picture_url': row[4]
         } for row in results]
