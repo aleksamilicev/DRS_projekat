@@ -4,6 +4,47 @@ from werkzeug.utils import secure_filename
 import os
 
 
+@jwt_required()
+def get_post_status(post_id):
+    db_client = current_app.db_client
+    try:
+        result = db_client.execute(
+            "SELECT Status FROM Osnovni_podaci_objave WHERE ID = :post_id",
+            {"post_id": post_id}
+        )
+        if not result:
+            return jsonify({"error": "Post not found"}), 404
+
+        return jsonify({
+            "post_id": post_id,
+            "status": result[0][0]
+        }), 200
+    except Exception as e:
+        current_app.logger.error(f"Error getting post status: {str(e)}")
+        return jsonify({"error": "Failed to get post status"}), 500
+
+
+@jwt_required()
+def get_all_user_post_statuses():
+    db_client = current_app.db_client
+    user_id = get_jwt_identity()
+    try:
+        results = db_client.execute(
+            "SELECT ID, Status FROM Osnovni_podaci_objave WHERE ID_Korisnika = :user_id ORDER BY ID DESC",
+            {"user_id": user_id}
+        )
+        posts_status = [{"post_id": row[0], "status": row[1]} for row in results]
+
+        return jsonify({
+            "user_id": user_id,
+            "posts_status": posts_status
+        }), 200
+    except Exception as e:
+        current_app.logger.error(f"Error getting all user post statuses: {str(e)}")
+        return jsonify({"error": "Failed to fetch post statuses"}), 500
+
+
+
 # Helper function to validate file extensions
 def allowed_file(filename, allowed_extensions):
     return '.' in filename and \
@@ -83,51 +124,147 @@ def create_post():
         return jsonify({"error": "Failed to create post"}), 500
 
 
-
 @jwt_required()
-def get_user_posts(user_id):
-    db_client = current_app.db_client  # Pristup bazi podataka
-    
-    # SQL upit za dobijanje objava korisnika
-    get_posts_query = """
-        SELECT 
-            o.ID AS post_id, 
-            o.Status AS status, 
-            s.Tekst AS text, 
+def get_my_approved_posts():
+    db_client = current_app.db_client
+    current_user_id = get_jwt_identity()
+
+    query = """
+        SELECT
+            o.ID AS post_id,
+            o.Status AS status,
+            s.Tekst AS text,
             s.Slika AS image
-        FROM 
+        FROM
             Osnovni_podaci_objave o
-        JOIN 
+        JOIN
             Sadrzaj_objave s ON o.ID = s.Osnovni_podaci_ID
-        WHERE 
-            o.ID_Korisnika = :user_id
-        ORDER BY 
+        WHERE
+            o.ID_Korisnika = :user_id AND o.Status = 'Approved'
+        ORDER BY
             o.ID DESC
     """
-    
+
     try:
-        # Izvršavanje upita i dobijanje rezultata
-        posts = db_client.execute(get_posts_query, {"user_id": user_id})
-        
-        # Ako nema objava
-        if not posts:
-            return jsonify({"message": "No posts found for this user"}), 404
-        
-        # Formatiranje rezultata u odgovarajući JSON
+        posts = db_client.execute(query, {"user_id": current_user_id})
+
         posts_data = []
         for post in posts:
+            image_url = None
+            if post[3]:
+                image_url = f"{request.url_root}static/uploads/{os.path.basename(post[3])}"
+
             posts_data.append({
-                "post_id": post[0],  # Pristupanje post_id preko indeksa
-                "status": post[1],    # Pristupanje statusu preko indeksa
-                "text": post[2],      # Pristupanje tekstu preko indeksa
-                "image": post[3]      # Pristupanje slici preko indeksa
+                "post_id": post[0],
+                "status": post[1],
+                "text": post[2],
+                "image": image_url,
             })
-        
-        return posts_data   # Vraćamo samo listu objava
-    
+
+        return jsonify({
+            "posts": posts_data,
+            "total_posts": len(posts_data)
+        }), 200
+
     except Exception as e:
-        current_app.logger.error(f"Error fetching posts for user {user_id}: {str(e)}")
-        return []  # Vraćamo praznu listu u slučaju greške
+        current_app.logger.error(f"Error fetching approved posts for current user: {str(e)}")
+        return jsonify({
+            "error": "Failed to fetch your approved posts",
+            "posts": []
+        }), 500
+
+
+@jwt_required()
+def get_user_posts(username):
+    db_client = current_app.db_client  # Pristup bazi podataka
+   
+    # SQL upit za dobijanje objava korisnika preko username-a
+    get_posts_query = """
+        SELECT
+            o.ID AS post_id,
+            o.Status AS status,
+            s.Tekst AS text,
+            s.Slika AS image,
+            o.ID_Korisnika AS user_id,
+            k.Korisnicko_ime AS username,
+            k.Ime AS first_name,
+            k.Prezime AS last_name
+        FROM
+            Osnovni_podaci_objave o
+        JOIN
+            Sadrzaj_objave s ON o.ID = s.Osnovni_podaci_ID
+        JOIN
+            Korisnici k ON o.ID_Korisnika = k.ID
+        WHERE
+            k.Korisnicko_ime = :username
+            AND o.Status = 'approved'  -- Prikazuj samo odobrene objave
+        ORDER BY
+            o.ID DESC
+    """
+   
+    try:
+        # Izvršavanje upita i dobijanje rezultata
+        posts = db_client.execute(get_posts_query, {"username": username})
+       
+        # Proveri da li korisnik postoji
+        if not posts:
+            # Provjeri da li korisnik uopšte postoji
+            user_check_query = "SELECT ID FROM Korisnici WHERE Korisnicko_ime = :username"
+            user_exists = db_client.execute(user_check_query, {"username": username})
+            
+            if not user_exists:
+                return jsonify({
+                    "error": f"User '{username}' not found"
+                }), 404
+            else:
+                return jsonify({
+                    "message": f"User '{username}' has no approved posts yet",
+                    "posts": [],
+                    "total_posts": 0,
+                    "username": username
+                }), 200
+       
+        # Formatiranje rezultata u odgovarajući JSON
+        posts_data = []
+        user_info = None
+        
+        for post in posts:
+            # Formatiranje image path-a ako postoji
+            image_url = None
+            if post[3]:  # Ako postoji slika
+                image_url = f"{request.url_root}static/uploads/{os.path.basename(post[3])}"
+            
+            # Čuvamo user info iz prvog posta
+            if not user_info:
+                user_info = {
+                    "user_id": post[4],
+                    "username": post[5],
+                    "first_name": post[6],
+                    "last_name": post[7]
+                }
+           
+            posts_data.append({
+                "post_id": post[0],
+                "status": post[1],
+                "text": post[2],
+                "image": image_url,
+                "user_id": post[4],
+                "username": post[5]
+            })
+       
+        # Vraćamo objave sa informacijama o korisniku
+        return jsonify({
+            "posts": posts_data,
+            "total_posts": len(posts_data),
+            "user_info": user_info
+        }), 200
+   
+    except Exception as e:
+        current_app.logger.error(f"Error fetching posts for user {username}: {str(e)}")
+        return jsonify({
+            "error": "Failed to fetch user posts",
+            "posts": []
+        }), 500
 
 
 

@@ -265,23 +265,48 @@ def get_all_posts():
 @jwt_required()
 def get_pending_posts():
     jwt_manager = JWTManager()
-
     try:
-        db_client = current_app.db_client  # Access the database client
+        db_client = current_app.db_client
         
-        # Check if the user is an admin
+        # Provera admin privilegija
         jwt_manager.checkIfAdmin(db_client)
         
-        # Query for pending posts
         query = """
-            SELECT opo.ID AS post_id, so.Tekst, so.Slika 
-            FROM Osnovni_podaci_objave opo
-            LEFT JOIN Sadrzaj_objave so ON so.Osnovni_podaci_ID = opo.ID
-            WHERE opo.Status = 'pending'
+            SELECT
+                o.ID AS post_id,
+                s.Tekst AS content,
+                s.Slika AS image,
+                n.Korisnicko_ime AS username,
+                l.Ime AS first_name,
+                l.Prezime AS last_name
+            FROM
+                Osnovni_podaci_objave o
+            JOIN
+                Sadrzaj_objave s ON o.ID = s.Osnovni_podaci_ID
+            JOIN
+                Nalog_korisnika n ON o.ID_Korisnika = n.ID
+            JOIN
+                Licni_podaci_korisnika l ON o.ID_Korisnika = l.ID
+            WHERE
+                o.Status = 'pending'
+            ORDER BY
+                o.ID DESC
         """
+        
         results = db_client.execute_query(query)
         
-        pending_posts = [{'post_id': row[0], 'content': row[1], 'image': row[2]} for row in results]
+        pending_posts = [
+            {
+                "post_id": row[0],
+                "content": row[1],
+                "image": row[2],
+                "username": row[3],
+                "first_name": row[4],
+                "last_name": row[5]
+            }
+            for row in results
+        ]
+        
         return jsonify({"pending_posts": pending_posts}), 200
 
     except PermissionError as e:
