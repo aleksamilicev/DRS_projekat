@@ -6,13 +6,4 @@ python-dotenv==1.0.1 # ovo nije primer, ovo je prava verzija i dependency
 Flask==2.3.2
 Flask-SQLAlchemy==3.0.4
 Flask-Mail==0.9.1
-flask_jwt_extended == 24.3.1
-
-alter table za Nalog_korisnika:
-
-"ALTER TABLE Nalog_korisnika
-ADD post_rejected NUMBER DEFAULT 0;"
-
-zbog hasiranja pasworda 
-"ALTER TABLE Nalog_korisnika
-MODIFY Lozinka VARCHAR2(255);"
+flask_jwt_extended==24.3.1
