@@ -23,12 +23,9 @@ def register():
     if not all([ime, prezime, ulica, grad, drzava, email, broj_telefona, korisnicko_ime, lozinka]):
         return jsonify({"error": "All fields are required"}), 400
 
-    # Hash the password with a salt
     hashed_password = generate_password_hash(lozinka)
 
     try:
-        db_client.begin()
-
         # Check if email or username already exists
         email_count = db_client.execute(
             "SELECT COUNT(*) FROM Contact_korisnika WHERE Email = :email",
@@ -44,21 +41,25 @@ def register():
         if username_count > 0:
             return jsonify({"error": "Username already exists"}), 400
 
-        # Insert user data into the database
+        # Generate ID first, then use it in all inserts
+        licni_id = db_client.execute("SELECT Licni_podaci_seq.NEXTVAL FROM dual")[0][0]
+
+        # Insert user data using the generated ID
         db_client.execute(
-            "INSERT INTO Licni_podaci_korisnika (ID, Ime, Prezime) VALUES (Licni_podaci_seq.NEXTVAL, :ime, :prezime)",
-            {"ime": ime, "prezime": prezime}
+            "INSERT INTO Licni_podaci_korisnika (ID, Ime, Prezime) VALUES (:id, :ime, :prezime)",
+            {"id": licni_id, "ime": ime, "prezime": prezime}
         )
-        licni_id = db_client.execute("SELECT Licni_podaci_seq.CURRVAL FROM dual")[0][0]
 
         db_client.execute(
             "INSERT INTO Adresa_korisnika (ID, Ulica, Grad, Drzava) VALUES (:id, :ulica, :grad, :drzava)",
             {"id": licni_id, "ulica": ulica, "grad": grad, "drzava": drzava}
         )
+
         db_client.execute(
             "INSERT INTO Contact_korisnika (ID, Email, Broj_telefona) VALUES (:id, :email, :broj_telefona)",
             {"id": licni_id, "email": email, "broj_telefona": broj_telefona}
         )
+
         db_client.execute(
             "INSERT INTO Nalog_korisnika (ID, Korisnicko_ime, Lozinka, Tip_korisnika) VALUES (:id, :korisnicko_ime, :lozinka, 'pending')",
             {"id": licni_id, "korisnicko_ime": korisnicko_ime, "lozinka": hashed_password}
@@ -73,6 +74,7 @@ def register():
         db_client.rollback()
         current_app.logger.error(f"Registration error: {str(e)}")
         return jsonify({"error": "Registration failed", "details": str(e)}), 500
+
 
 def login():
     db_client = current_app.db_client

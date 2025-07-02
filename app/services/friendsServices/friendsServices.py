@@ -3,9 +3,37 @@ from sqlalchemy import or_
 #from config import db, Nalog_korisnika, Licni_podaci_korisnika, Prijateljstva
 import jwt
 from flask_jwt_extended import get_jwt_identity, jwt_required
+from app.utils import JWTManager
 
 
+@jwt_required()
+def get_suggestions():
+    try:
+        db_client = current_app.db_client
+        current_user_id = get_jwt_identity()  # dobija ID trenutno ulogovanog korisnika
 
+        query = """
+            SELECT nk.ID, lpk.Ime, lpk.Prezime, nk.profile_picture_url, nk.Blokiran
+            FROM Nalog_korisnika nk
+            INNER JOIN Licni_podaci_korisnika lpk ON nk.ID = lpk.ID
+            WHERE nk.ID != :current_user_id
+        """
+        results = db_client.execute_query(query, {'current_user_id': current_user_id})
+
+        users = [{
+            'id': row[0],
+            'ime': row[1],
+            'prezime': row[2],
+            'profile_picture_url': row[3],
+            'blokiran': row[4]
+        } for row in results]
+
+        return jsonify({"message": "Retrieved all users", "users": users}), 200
+
+    except PermissionError as e:
+        return jsonify({"error": str(e)}), 403
+    except Exception as e:
+        return jsonify({"error": "Failed to retrieve users", "details": str(e)}), 500
 
 
 

@@ -49,25 +49,26 @@ def get_all_user_post_statuses():
 def allowed_file(filename, allowed_extensions):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in allowed_extensions
+
 @jwt_required()
 def create_post():
     db_client = current_app.db_client
     try:
         # Get the current user's ID from JWT token
         current_user_id = get_jwt_identity()
-        
+       
         # Get post data from the request
         data = request.form
         text = data.get('text', '').strip()
-        
+       
         # Validate text content
         if not text:
             return jsonify({"error": "Post text cannot be empty"}), 400
-        
+       
         # Check text length (example: max 500 characters)
         if len(text) > 500:
             return jsonify({"error": "Post text exceeds maximum length of 500 characters"}), 400
-        
+       
         # Handle image upload
         image = request.files.get('image')
         image_path = None
@@ -76,30 +77,26 @@ def create_post():
             allowed_extensions = {'png', 'jpg', 'jpeg'}
             if not allowed_file(image.filename, allowed_extensions):
                 return jsonify({"error": "Invalid image file type"}), 400
-            
+           
             # Save image to a specific directory
             filename = secure_filename(image.filename)
             upload_folder = current_app.config['UPLOAD_FOLDER']
             os.makedirs(upload_folder, exist_ok=True)
             image.save(os.path.join(upload_folder, filename))
             image_path = f"/static/uploads/{filename}"
-
-            
+       
+        # IZMENA: Generiši ID prvo, onda ga koristi u INSERT-u
+        post_id = db_client.execute("SELECT Objave_seq.NEXTVAL FROM dual")[0][0]
         
-        # Begin database transaction
+        # Insert into Osnovni_podaci_objave using the generated ID
         insert_basic_data_query = """
         INSERT INTO Osnovni_podaci_objave (ID, ID_Korisnika, Broj_odbijanja, Status)
-        VALUES (Objave_seq.NEXTVAL, :user_id, 0, 'pending')
+        VALUES (:post_id, :user_id, 0, 'pending')
         """
-        db_client.execute(insert_basic_data_query, {"user_id": current_user_id})
-
-        # Sada dobijamo poslednji korišćeni ID sa CURRVAL sekvencera
-        post_id_query = "SELECT Objave_seq.CURRVAL FROM dual"
-        post_id = db_client.execute(post_id_query)[0][0]
-
-        if post_id is None:
-            return jsonify({"error": "Failed to retrieve post ID"}), 400
-
+        db_client.execute(insert_basic_data_query, {
+            "post_id": post_id,
+            "user_id": current_user_id
+        })
         
         # Insert into Sadrzaj_objave
         insert_content_query = """
@@ -107,24 +104,28 @@ def create_post():
         VALUES (Sadrzaj_objave_seq.NEXTVAL, :post_id, :text, :image)
         """
         db_client.execute(
-            insert_content_query, 
+            insert_content_query,
             {
-                "post_id": post_id, 
-                "text": text, 
+                "post_id": post_id,
+                "text": text,
                 "image": image_path
             }
         )
-        
+       
+        # Commit the transaction
+        db_client.commit()
+       
         return jsonify({
             "message": "Post created successfully and is pending approval",
             "post_id": post_id
         }), 201
-    
+   
     except Exception as e:
+        db_client.rollback()
         current_app.logger.error(f"Error creating post: {str(e)}")
         # Rollback any file upload if transaction fails
-        if image_path and os.path.exists(image_path):
-            os.remove(image_path)
+        if image_path and os.path.exists(os.path.join(current_app.config['UPLOAD_FOLDER'], os.path.basename(image_path))):
+            os.remove(os.path.join(current_app.config['UPLOAD_FOLDER'], os.path.basename(image_path)))
         return jsonify({"error": "Failed to create post"}), 500
 
 
