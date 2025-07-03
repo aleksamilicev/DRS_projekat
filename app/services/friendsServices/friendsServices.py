@@ -13,10 +13,16 @@ def get_suggestions():
         current_user_id = get_jwt_identity()  # dobija ID trenutno ulogovanog korisnika
 
         query = """
-            SELECT nk.ID, lpk.Ime, lpk.Prezime, nk.profile_picture_url, nk.Blokiran
+            SELECT
+                nk.ID,
+                lpk.Ime,
+                lpk.Prezime,
+                nk.profile_picture_url,
+                nk.Blokiran
             FROM Nalog_korisnika nk
             INNER JOIN Licni_podaci_korisnika lpk ON nk.ID = lpk.ID
             WHERE nk.ID != :current_user_id
+              AND nk.Tip_korisnika = 'user'          -- ⬅︎ isključi admine
         """
         results = db_client.execute_query(query, {'current_user_id': current_user_id})
 

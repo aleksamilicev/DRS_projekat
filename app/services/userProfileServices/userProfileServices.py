@@ -196,7 +196,7 @@ def get_user_profile(user_id):
             ck.Email, 
             nk.Korisnicko_ime, 
             nk.Tip_korisnika, 
-            nk.Blokiran
+            nk.Blokiran,
             nk.PROFILE_PICTURE_URL
         FROM Licni_podaci_korisnika lpk
         LEFT JOIN Adresa_korisnika ak ON lpk.ID = ak.ID
