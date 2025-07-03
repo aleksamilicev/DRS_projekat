@@ -160,46 +160,87 @@ def get_friend_requests():
 
 @jwt_required()
 def send_friend_request(user_id):
-    db_client = current_app.db_client
+    """
+    • INSERT novi red ako ne postoji nijedan between users
+    • Ako postoji:
+        - Accepted  → 400
+        - Pending   → 400
+        - Rejected  → 
+            » ako je isti pošiljalac → UPDATE status='Pending'
+            » ako je pošiljalac obrnut → UPDATE swap kolone + status='Pending'
+    """
     try:
-        # Dohvatanje ID-a trenutnog korisnika
-        current_user_id = get_jwt_identity()
+        db   = current_app.db_client
+        me   = int(get_jwt_identity())
+        other = int(user_id)
 
-        # Provera da li korisnik sa datim user_id postoji
-        query_check_user = "SELECT COUNT(*) FROM Nalog_korisnika WHERE ID = :user_id"
-        user_exists = db_client.execute_query(query_check_user, {"user_id": user_id})[0][0]
+        if me == other:
+            return jsonify({"error": "Cannot send friend request to yourself"}), 400
 
-        if user_exists == 0:
-            return jsonify({"error": f"User with ID {user_id} does not exist"}), 404
+        # provjeri da li drugi korisnik postoji
+        if db.execute_query(
+            "SELECT COUNT(*) FROM Nalog_korisnika WHERE ID = :uid", {"uid": other}
+        )[0][0] == 0:
+            return jsonify({"error": f"User {other} not found"}), 404
 
-        # Provera da li već postoji prijateljstvo ili zahtev
-        query_check_friendship = """
-        SELECT COUNT(*) 
-        FROM Prijateljstva 
-        WHERE (ID_Korisnika1 = :current_user_id AND ID_Korisnika2 = :user_id) 
-           OR (ID_Korisnika1 = :user_id AND ID_Korisnika2 = :current_user_id)
-        """
-        existing_relationship = db_client.execute_query(
-            query_check_friendship, 
-            {"current_user_id": current_user_id, "user_id": user_id}
-        )[0][0]
+        # da li već postoji veza?
+        row = db.execute_query(
+            """
+            SELECT ID, STATUS, ID_Korisnika1, ID_Korisnika2
+            FROM   Prijateljstva
+            WHERE (ID_Korisnika1 = :me AND ID_Korisnika2 = :other)
+               OR (ID_Korisnika2 = :me AND ID_Korisnika1 = :other)
+            """,
+            {"me": me, "other": other}
+        )
 
-        if existing_relationship > 0:
-            return jsonify({"error": "Friend request already sent or users are already friends"}), 400
+        if row:
+            rel_id, status, sender_id, receiver_id = row[0]
+            status = status.upper()
 
-        # Kreiranje novog zahteva za prijateljstvo
-        insert_query = """
-        INSERT INTO Prijateljstva (ID, ID_Korisnika1, ID_Korisnika2, Status)
-        VALUES (Prijateljstva_seq.NEXTVAL, :current_user_id, :user_id, 'Pending')
-        """
-        # current_user_id = 4(ulogovan sam kao ana) i zahtev sam poslao na user_id = 2(zahtev je poslalti jovani)
-        db_client.execute(insert_query, {"current_user_id": current_user_id, "user_id": user_id})
+            if status == 'ACCEPTED':
+                return jsonify({"error": "Users are already friends"}), 400
 
+            if status == 'PENDING':
+                return jsonify({"error": "Friend request already pending"}), 400
+
+            if status == 'REJECTED':
+                if sender_id == me:
+                    # isti pošiljalac ponovo šalje → samo digni status
+                    db.execute(
+                        "UPDATE Prijateljstva SET STATUS = 'Pending' WHERE ID = :rid",
+                        {"rid": rel_id}
+                    )
+                else:
+                    # obrnuti smjer → zamijeni kolone i postavi na Pending
+                    db.execute(
+                        """
+                        UPDATE Prijateljstva
+                        SET ID_Korisnika1 = :me,
+                            ID_Korisnika2 = :other,
+                            STATUS        = 'Pending'
+                        WHERE ID = :rid
+                        """,
+                        {"me": me, "other": other, "rid": rel_id}
+                    )
+                return jsonify({"message": "Friend request re‑sent"}), 200
+
+        # nema nikakvog reda → INSERT novi
+        db.execute(
+            """
+            INSERT INTO Prijateljstva
+                   (ID, ID_Korisnika1, ID_Korisnika2, STATUS)
+            VALUES (Prijateljstva_seq.NEXTVAL, :me, :other, 'Pending')
+            """,
+            {"me": me, "other": other}
+        )
         return jsonify({"message": "Friend request sent successfully"}), 201
 
     except Exception as e:
-        current_app.logger.error(f"Error sending friend request: {str(e)}")
+        current_app.logger.error(f"Error sending friend request: {e}")
         return jsonify({"error": "Failed to send friend request"}), 500
+
+
 
 
 
