@@ -52,71 +52,61 @@ def get_current_user_id():
         current_app.logger.error(f"Error getting current user ID: {e}")
         return None
 
-@jwt_required()  # Obezbeđuje da se JWT token validira pre poziva funkcije
+@jwt_required()
 def get_friends():
-    db_client = current_app.db_client  # Access to the database from the Flask application
-    
+    db = current_app.db_client
     try:
-        # Get the authenticated user's ID from the JWT token
-        # Assuming you have a method to get the current user's ID from the token
-        current_user_id = get_current_user_id()  # You'll need to implement this method
-        
+        current_user_id = get_current_user_id()
         if not current_user_id:
             return jsonify({"error": "Unauthorized"}), 401
-        
-        # Query to fetch friends with their personal details
+
         query = """
         SELECT 
-            lpk.ID AS friend_id,
-            lpk.Ime AS first_name, 
-            lpk.Prezime AS last_name,
-            ck.Email AS email,
-            ck.Broj_telefona AS phone_number,
-            p.Status AS friendship_status
-        FROM 
-            Prijateljstva p
-        JOIN 
-            Licni_podaci_korisnika lpk 
-            ON (CASE 
-                    WHEN p.ID_Korisnika1 = :user_id THEN p.ID_Korisnika2
-                    ELSE p.ID_Korisnika1
-                END) = lpk.ID
-        JOIN 
-            Contact_korisnika ck 
-            ON lpk.ID = ck.ID
-        WHERE 
-            (p.ID_Korisnika1 = :user_id OR p.ID_Korisnika2 = :user_id) 
-            AND p.Status = 'Accepted'
+            lpk.ID                AS friend_id,
+            lpk.Ime               AS first_name,
+            lpk.Prezime           AS last_name,
+            ck.Email              AS email,
+            ck.Broj_telefona      AS phone_number,
+            nk.Korisnicko_ime     AS username,            -- ⬅︎ dodaj kolonu
+            p.Status              AS friendship_status
+        FROM Prijateljstva p
+        JOIN Licni_podaci_korisnika lpk 
+             ON (CASE WHEN p.ID_Korisnika1 = :uid THEN p.ID_Korisnika2
+                      ELSE p.ID_Korisnika1 END) = lpk.ID
+        JOIN Contact_korisnika ck  ON lpk.ID = ck.ID
+        JOIN Nalog_korisnika   nk  ON lpk.ID = nk.ID        -- ⬅︎ JOIN da dobiješ username
+        WHERE (p.ID_Korisnika1 = :uid OR p.ID_Korisnika2 = :uid)
+          AND p.Status = 'Accepted'
         """
-        
-        # Execute the query
-        friends = db_client.execute_query(query, {"user_id": current_user_id})
-        seen_friends = set()  # Set to keep track of unique friends based on their ID
-        friends_list = []
-        
-        # Transform the results into a list of dictionaries
-        for friend in friends:
-            if friend.friend_id not in seen_friends:
-                seen_friends.add(friend.friend_id)
-                friends_list.append({
-                    "id": friend.friend_id,
-                    "first_name": friend.first_name,
-                    "last_name": friend.last_name,
-                    "email": friend.email,
-                    "phone_number": friend.phone_number,
-                    "friendship_status": friend.friendship_status,
-        })
-        
+        rows = db.execute_query(query, {"uid": current_user_id})
+
+        friends = []
+        seen = set()
+        for r in rows:          # r je tuple
+            fid = r[0]
+            if fid in seen:
+                continue
+            seen.add(fid)
+            friends.append({
+                "id"              : fid,
+                "first_name"      : r[1],
+                "last_name"       : r[2],
+                "email"           : r[3],
+                "phone_number"    : r[4],
+                "username"        : r[5],   # ⬅︎ ubaci u izlaz
+                "friendship_status": r[6],
+            })
+
         return jsonify({
-            "message": "Friends retrieved successfully",
-            "friends": friends_list,
-            "total_friends": len(friends_list)
+            "message"      : "Friends retrieved successfully",
+            "friends"      : friends,
+            "total_friends": len(friends)
         }), 200
-    
+
     except Exception as e:
-        # Error handling
         current_app.logger.error(f"Error retrieving friends: {e}")
         return jsonify({"error": "Internal server error"}), 500
+
 
 
 

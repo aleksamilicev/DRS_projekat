@@ -181,95 +181,76 @@ def get_my_approved_posts():
 
 @jwt_required()
 def get_user_posts(username):
-    db_client = current_app.db_client  # Pristup bazi podataka
-   
-    # SQL upit za dobijanje objava korisnika preko username-a
-    get_posts_query = """
+    db = current_app.db_client
+    query = """
         SELECT
-            o.ID AS post_id,
-            o.Status AS status,
-            s.Tekst AS text,
-            s.Slika AS image,
-            o.ID_Korisnika AS user_id,
-            k.Korisnicko_ime AS username,
-            k.Ime AS first_name,
-            k.Prezime AS last_name
-        FROM
-            Osnovni_podaci_objave o
-        JOIN
-            Sadrzaj_objave s ON o.ID = s.Osnovni_podaci_ID
-        JOIN
-            Korisnici k ON o.ID_Korisnika = k.ID
-        WHERE
-            k.Korisnicko_ime = :username
-            AND o.Status = 'approved'  -- Prikazuj samo odobrene objave
-        ORDER BY
-            o.ID DESC
+            o.ID                AS post_id,
+            o.Status            AS status,
+            s.Tekst             AS text,
+            s.Slika             AS image,
+            o.ID_Korisnika      AS user_id,
+            nk.Korisnicko_ime   AS username,
+            lpk.Ime             AS first_name,
+            lpk.Prezime         AS last_name
+        FROM  Osnovni_podaci_objave      o
+        JOIN  Sadrzaj_objave             s   ON o.ID          = s.Osnovni_podaci_ID
+        JOIN  Nalog_korisnika            nk  ON o.ID_Korisnika = nk.ID
+        JOIN  Licni_podaci_korisnika     lpk ON o.ID_Korisnika = lpk.ID
+        WHERE nk.Korisnicko_ime = :username
+          AND o.Status = 'Approved'
+        ORDER BY o.ID DESC
     """
-   
     try:
-        # Izvršavanje upita i dobijanje rezultata
-        posts = db_client.execute(get_posts_query, {"username": username})
-       
-        # Proveri da li korisnik postoji
-        if not posts:
-            # Provjeri da li korisnik uopšte postoji
-            user_check_query = "SELECT ID FROM Korisnici WHERE Korisnicko_ime = :username"
-            user_exists = db_client.execute(user_check_query, {"username": username})
-            
-            if not user_exists:
-                return jsonify({
-                    "error": f"User '{username}' not found"
-                }), 404
-            else:
-                return jsonify({
-                    "message": f"User '{username}' has no approved posts yet",
-                    "posts": [],
-                    "total_posts": 0,
-                    "username": username
-                }), 200
-       
-        # Formatiranje rezultata u odgovarajući JSON
-        posts_data = []
-        user_info = None
+        rows = db.execute(query, {"username": username})
+        # Ako nema nijedne objave, provjeri da li korisnik postoji.
+        if not rows:
+            exists = db.execute(
+                "SELECT 1 FROM Nalog_korisnika WHERE Korisnicko_ime = :u",
+                {"u": username}
+            )
+            if not exists:
+                return jsonify({"error": f"User '{username}' not found"}), 404
+            return jsonify({
+                "message": f"User '{username}' has no approved posts yet",
+                "posts": [],
+                "total_posts": 0,
+                "username": username
+            }), 200
         
-        for post in posts:
-            # Formatiranje image path-a ako postoji
+        posts = []
+        user_info = None
+        for r in rows:
+            # Proverava da li postoji slika i generiše URL
             image_url = None
-            if post[3]:  # Ako postoji slika
-                image_url = f"{request.url_root}static/uploads/{os.path.basename(post[3])}"
+            if r[3]:  # ako postoji slika
+                image_url = f"{request.url_root}static/uploads/{os.path.basename(r[3])}"
             
-            # Čuvamo user info iz prvog posta
-            if not user_info:
+            if user_info is None:
                 user_info = {
-                    "user_id": post[4],
-                    "username": post[5],
-                    "first_name": post[6],
-                    "last_name": post[7]
+                    "user_id"   : r[4],
+                    "username"  : r[5],
+                    "first_name": r[6],
+                    "last_name" : r[7],
                 }
-           
-            posts_data.append({
-                "post_id": post[0],
-                "status": post[1],
-                "text": post[2],
-                "image": image_url,
-                "user_id": post[4],
-                "username": post[5]
+            
+            posts.append({
+                "post_id" : r[0],
+                "status"  : r[1],
+                "text"    : r[2],
+                "image"   : image_url,
+                "user_id" : r[4],
+                "username": r[5],
             })
-       
-        # Vraćamo objave sa informacijama o korisniku
+        
         return jsonify({
-            "posts": posts_data,
-            "total_posts": len(posts_data),
-            "user_info": user_info
+            "posts"      : posts,
+            "total_posts": len(posts),
+            "user_info"  : user_info,
         }), 200
-   
+        
     except Exception as e:
-        current_app.logger.error(f"Error fetching posts for user {username}: {str(e)}")
-        return jsonify({
-            "error": "Failed to fetch user posts",
-            "posts": []
-        }), 500
+        current_app.logger.error(f"Error fetching posts for user {username}: {e}")
+        return jsonify({"error": "Failed to fetch user posts", "posts": []}), 500
 
 
 
