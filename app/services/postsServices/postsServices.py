@@ -54,41 +54,20 @@ def allowed_file(filename, allowed_extensions):
 def create_post():
     db_client = current_app.db_client
     try:
-        # Get the current user's ID from JWT token
         current_user_id = get_jwt_identity()
+
+        
+        data       = request.get_json() or {}          
+        text       = (data.get("text") or "").strip()
+        image_url  = (data.get("image_url") or "").strip()
+        print("text: ", text)
+        print("image_url: ", image_url)
        
-        # Get post data from the request
-        data = request.form
-        text = data.get('text', '').strip()
+        if not text and not image_url:
+            return jsonify({"error": "Text or image URL is required"}), 400
        
-        # Validate text content
-        if not text:
-            return jsonify({"error": "Post text cannot be empty"}), 400
-       
-        # Check text length (example: max 500 characters)
-        if len(text) > 500:
-            return jsonify({"error": "Post text exceeds maximum length of 500 characters"}), 400
-       
-        # Handle image upload
-        image = request.files.get('image')
-        image_path = None
-        if image:
-            # Validate image file
-            allowed_extensions = {'png', 'jpg', 'jpeg'}
-            if not allowed_file(image.filename, allowed_extensions):
-                return jsonify({"error": "Invalid image file type"}), 400
-           
-            # Save image to a specific directory
-            filename = secure_filename(image.filename)
-            upload_folder = current_app.config['UPLOAD_FOLDER']
-            os.makedirs(upload_folder, exist_ok=True)
-            image.save(os.path.join(upload_folder, filename))
-            image_path = f"/static/uploads/{filename}"
-       
-        # IZMENA: Generiši ID prvo, onda ga koristi u INSERT-u
         post_id = db_client.execute("SELECT Objave_seq.NEXTVAL FROM dual")[0][0]
         
-        # Insert into Osnovni_podaci_objave using the generated ID
         insert_basic_data_query = """
         INSERT INTO Osnovni_podaci_objave (ID, ID_Korisnika, Broj_odbijanja, Status)
         VALUES (:post_id, :user_id, 0, 'pending')
@@ -108,11 +87,10 @@ def create_post():
             {
                 "post_id": post_id,
                 "text": text,
-                "image": image_path
+                "image": image_url
             }
         )
        
-        # Commit the transaction
         db_client.commit()
        
         return jsonify({
@@ -157,7 +135,7 @@ def get_my_approved_posts():
         for post in posts:
             image_url = None
             if post[3]:
-                image_url = f"{request.url_root}static/uploads/{os.path.basename(post[3])}"
+                image_url = post[3]
 
             posts_data.append({
                 "post_id": post[0],
@@ -184,14 +162,13 @@ def get_user_posts(username):
     db = current_app.db_client
     query = """
         SELECT
-            o.ID                AS post_id,
-            o.Status            AS status,
-            s.Tekst             AS text,
-            s.Slika             AS image,
             o.ID_Korisnika      AS user_id,
-            nk.Korisnicko_ime   AS username,
-            lpk.Ime             AS first_name,
-            lpk.Prezime         AS last_name
+            nk.Korisnicko_ime,
+            nk.PROFILE_PICTURE_URL,
+            s.Tekst             AS post_text,
+            s.Slika             AS post_image,
+            o.ID                AS post_id
+
         FROM  Osnovni_podaci_objave      o
         JOIN  Sadrzaj_objave             s   ON o.ID          = s.Osnovni_podaci_ID
         JOIN  Nalog_korisnika            nk  ON o.ID_Korisnika = nk.ID
@@ -217,36 +194,26 @@ def get_user_posts(username):
                 "username": username
             }), 200
         
-        posts = []
-        user_info = None
-        for r in rows:
-            # Proverava da li postoji slika i generiše URL
-            image_url = None
-            if r[3]:  # ako postoji slika
-                image_url = f"{request.url_root}static/uploads/{os.path.basename(r[3])}"
-            
-            if user_info is None:
-                user_info = {
-                    "user_id"   : r[4],
-                    "username"  : r[5],
-                    "first_name": r[6],
-                    "last_name" : r[7],
-                }
-            
-            posts.append({
-                "post_id" : r[0],
-                "status"  : r[1],
-                "text"    : r[2],
-                "image"   : image_url,
-                "user_id" : r[4],
-                "username": r[5],
-            })
+        posts = [
+            {
+                "user_id":              r[0],
+                "username":             r[1],
+                "profile_picture_url":  r[2],
+                "post_text":            r[3],
+                "post_image":           r[4],
+                "post_id":              r[5],
+            }
+            for r in rows
+        ]
+       
         
-        return jsonify({
-            "posts"      : posts,
-            "total_posts": len(posts),
-            "user_info"  : user_info,
-        }), 200
+        return jsonify(
+            {
+                "message": "Posts fetched",
+                "total_posts": len(posts),
+                "posts": posts,
+            }
+        ), 200
         
     except Exception as e:
         current_app.logger.error(f"Error fetching posts for user {username}: {e}")
@@ -372,73 +339,70 @@ def delete_post(post_id):
 # Dodao sam flag da kontrolise ovo, ali ukoliko bude bio neki bug, treba se vratiti ovde
 @jwt_required()
 def get_friends_posts():
-    db_client = current_app.db_client  # Access to the database from the Flask application
-    
+    db = current_app.db_client
+    user_id = get_jwt_identity()
+
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+
     try:
-        # Get the authenticated user's ID from the JWT token
-        current_user_id = get_jwt_identity()  # Assuming you have this function implemented
-        
-        if not current_user_id:
-            return jsonify({"error": "Unauthorized"}), 401
-        
-        # Query to fetch friends of the current user
-        friends_query = """
+        sql = """
+       
         SELECT 
-            lpk.ID AS friend_id
-        FROM 
-            Prijateljstva p
-        JOIN 
-            Licni_podaci_korisnika lpk 
-            ON (CASE 
-                    WHEN p.ID_Korisnika1 = :user_id THEN p.ID_Korisnika2
-                    ELSE p.ID_Korisnika1
-                END) = lpk.ID
-        WHERE 
-            (p.ID_Korisnika1 = :user_id OR p.ID_Korisnika2 = :user_id) 
-            AND p.Status = 'Accepted'
+    n.ID AS user_id,
+    n.KORISNICKO_IME,
+    n.PROFILE_PICTURE_URL,
+    s.Tekst AS post_text,
+    s.Slika AS post_image,
+    o.ID AS post_id
+FROM 
+    Osnovni_podaci_objave o
+JOIN 
+    Sadrzaj_objave s ON o.ID = s.ID
+JOIN 
+    Nalog_korisnika n ON o.ID_Korisnika = n.ID
+WHERE 
+    o.Status = 'Approved'
+    AND (
+        -- User's own posts
+        o.ID_Korisnika = :user_id
+
+        -- OR: Posts from friends with 'Accepted' friendship
+        OR EXISTS (
+            SELECT 1
+            FROM Prijateljstva p
+            WHERE p.Status = 'Accepted'
+              AND (
+                  (p.ID_KORISNIKA1 = :user_id AND p.ID_KORISNIKA2 = o.ID_Korisnika)
+               OR (p.ID_KORISNIKA2 = :user_id AND p.ID_KORISNIKA1 = o.ID_Korisnika)
+              )
+        )
+    )
+ORDER BY 
+    o.ID DESC
+
         """
-        
-        # Execute the query to get friends' IDs
-        friends = db_client.execute_query(friends_query, {"user_id": current_user_id})
-        
-        # If there are no friends, return a message
-        if not friends:
-            return jsonify({"message": "You have no friends"}), 200
-        
-        friends_ids = [friend.friend_id for friend in friends]
-        
-        # Prepare a list to store the posts from friends
-        all_posts = []
-        
-        # Flag to track if we have any approved posts
-        has_approved_posts = False
-        
-        # For each friend, get their posts using the existing get_user_posts method
-        for friend_id in friends_ids:
-            # Get posts from friend
-            posts = get_user_posts(friend_id)
-            
-            # Filter posts by 'approved' status and collect them
-            for post in posts:
-                if post["status"] == "approved":
-                    all_posts.append(post)
-                    has_approved_posts = True
-        
-        # If no approved posts were found, return a message
-        if not has_approved_posts:
-            return jsonify({"message": "Your friends have no approved posts"}), 200
-        
-        # Return all the posts from friends
-        return jsonify({
-            "message": "Friends' posts retrieved successfully",
-            "posts": all_posts,
-            "total_posts": len(all_posts)
-        }), 200
-    
-    except Exception as e:
-        # Error handling
-        current_app.logger.error(f"Error retrieving friends' posts: {e}")
-        return jsonify({"error": "Internal server error"}), 500
 
-
-
+        rows = db.execute_query(sql, {"user_id": user_id})
+        posts = [
+            {
+                "user_id":              r[0],
+                "username":             r[1],
+                "profile_picture_url":  r[2],
+                "post_text":            r[3],
+                "post_image":           r[4],
+                "post_id":              r[5],
+            }
+            for r in rows
+        ]
+       
+        return jsonify(
+            {
+                "message": "Feed fetched",
+                "total_posts": len(posts),
+                "posts": posts,
+            }
+        ), 200
+    except Exception as exc:
+        current_app.logger.error(f"feed error user {user_id}: {exc}")
+        return jsonify({"error": "Failed to fetch feed"}), 500

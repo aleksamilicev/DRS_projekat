@@ -17,7 +17,7 @@ post_routes.add_url_rule('/posts', view_func=get_my_approved_posts, methods=['GE
 post_routes.add_url_rule('/posts/<string:username>', view_func=get_user_posts, methods=['GET']) # za pregled objava korisnika(bilo kojeg)
 post_routes.add_url_rule('/posts/<int:post_id>', view_func=update_post, methods=['PUT'])
 post_routes.add_url_rule('/posts/<int:post_id>', view_func=delete_post, methods=['DELETE'])
-#post_routes.add_url_rule('/posts/friends', view_func=get_friends_posts, methods=['GET'])
+post_routes.add_url_rule('/posts/friends', view_func=get_friends_posts, methods=['GET'])
 
 # NEW: Get status of a single post
 post_routes.add_url_rule('/posts/<int:post_id>/status', view_func=get_post_status, methods=['GET'])

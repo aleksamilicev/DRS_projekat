@@ -259,7 +259,7 @@ def get_all_posts():
         posts = [{
             'post_id': row[0],
             'content': row[1],
-            'image': normalize_image_path(row[2]),
+            'image': row[2],
             'username': row[3],
             'profile_picture_url': row[4]
         } for row in results]
@@ -291,7 +291,8 @@ def get_pending_posts():
                 s.Slika AS image,
                 n.Korisnicko_ime AS username,
                 l.Ime AS first_name,
-                l.Prezime AS last_name
+                l.Prezime AS last_name,
+                n.PROFILE_PICTURE_URL as PROFILE_PICTURE_URL
             FROM
                 Osnovni_podaci_objave o
             JOIN
@@ -315,7 +316,8 @@ def get_pending_posts():
                 "image": row[2],
                 "username": row[3],
                 "first_name": row[4],
-                "last_name": row[5]
+                "last_name": row[5],
+                "profile_picture_url": row[6],
             }
             for row in results
         ]

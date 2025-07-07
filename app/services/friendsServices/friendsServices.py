@@ -1,9 +1,8 @@
 from flask import jsonify, request, current_app
 from sqlalchemy import or_
 #from config import db, Nalog_korisnika, Licni_podaci_korisnika, Prijateljstva
-import jwt
 from flask_jwt_extended import get_jwt_identity, jwt_required
-from app.utils import JWTManager
+
 
 
 @jwt_required()
@@ -334,11 +333,11 @@ def reject_friend_request(request_id):
 
 @jwt_required()
 def delete_friend(friend_id):
+
     db_client = current_app.db_client
     try:
         # Dohvatanje ID-a trenutnog korisnika
         current_user_id = get_jwt_identity()
-
         # Provera da li je prijateljstvo već uspostavljeno
         check_query = """
         SELECT ID
@@ -346,7 +345,6 @@ def delete_friend(friend_id):
         WHERE 
             (ID_Korisnika1 = :current_user_id AND ID_Korisnika2 = :friend_id)
             OR (ID_Korisnika1 = :friend_id AND ID_Korisnika2 = :current_user_id)
-            AND Status = 'Accepted'
         """
         friendship = db_client.execute_query(
             check_query, {"current_user_id": current_user_id, "friend_id": friend_id}
@@ -365,7 +363,7 @@ def delete_friend(friend_id):
         db_client.execute(
             delete_query, {"current_user_id": current_user_id, "friend_id": friend_id}
         )
-
+        
         return jsonify({"message": "Friend deleted successfully"}), 200
 
     except Exception as e:

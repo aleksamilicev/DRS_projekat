@@ -7,6 +7,68 @@ from app.utils import JWTManager
 
 @jwt_required()
 def search_users():
+    db = current_app.db_client
+    user_id = get_jwt_identity()
+
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    sql = """
+    SELECT
+        nk.ID,
+        c.Email,
+        nk.KORISNICKO_IME,
+        lpk.IME,
+        lpk.PREZIME,
+        adr.GRAD,
+        nk.PROFILE_PICTURE_URL,
+        nk.BLOKIRAN,
+        p.STATUS
+    FROM Nalog_korisnika nk
+    INNER JOIN Licni_podaci_korisnika lpk ON nk.ID = lpk.ID
+    LEFT JOIN Adresa_korisnika adr ON nk.ID = adr.ID
+    LEFT JOIN Contact_korisnika c ON nk.ID = c.ID
+    LEFT JOIN Prijateljstva p
+        ON (
+            (p.ID_KORISNIKA1 = :user_id AND p.ID_KORISNIKA2 = nk.ID)
+            OR
+            (p.ID_KORISNIKA2 = :user_id AND p.ID_KORISNIKA1 = nk.ID)
+        )
+    WHERE
+        nk.ID != :user_id
+        AND nk.TIP_KORISNIKA = 'user'
+    """
+
+    try:
+        rows = db.execute_query(sql, {"user_id": user_id})
+
+        users = []
+        for r in rows:
+            users.append({
+                "id": r[0],
+                "email": r[1],
+                "username": r[2],
+                "first_name": r[3],
+                "last_name": r[4],
+                "city": r[5],
+                "profile_picture_url": r[6],
+                "blocked": bool(r[7]),
+                "friendship_status": r[8]  
+            })
+
+        return jsonify({
+            "message": "Users fetched",
+            "total_users": len(users),
+            "users": users,
+        }), 200
+
+    except Exception as exc:
+        current_app.logger.error(f"Error fetching users for user {user_id}: {exc}")
+        return jsonify({"error": "Failed to fetch users"}), 500
+
+
+@jwt_required()
+def search_users1():
     try:
         db_client = current_app.db_client
         current_user_id = get_jwt_identity()

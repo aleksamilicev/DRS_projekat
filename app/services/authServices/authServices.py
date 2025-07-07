@@ -86,7 +86,7 @@ def login():
         return jsonify({"error": "Username and password are required"}), 400
 
     query = """
-        SELECT ID, Korisnicko_ime, Lozinka, Tip_korisnika, BLOKIRAN, FIRST_TIME_LOGIN
+        SELECT ID, Korisnicko_ime, Lozinka, Tip_korisnika, BLOKIRAN, FIRST_TIME_LOGIN, profile_picture_url
         FROM Nalog_korisnika
         WHERE Korisnicko_ime = :korisnicko_ime
     """
@@ -102,6 +102,7 @@ def login():
     user_role = user[3]
     blokiran = user[4]
     first_time_login = user[5]
+    profile_picture_url = user[6]
     if user_role == "pending":
         return jsonify({"error": "Your account is not accepted by the admin yet."}), 403
 
@@ -140,46 +141,13 @@ def login():
     # Generate JWT 
     access_token = create_access_token(
         identity=str(user_id),
-        additional_claims={"username": korisnicko_ime, "role": user_role},
+        additional_claims={"username": korisnicko_ime, "role": user_role, "profile_picture_url": profile_picture_url},
         expires_delta=timedelta(days=30)
     )
 
     return jsonify({"token": access_token}), 200
 
-"""def login():
-    db_client = current_app.db_client
-    data = request.get_json()
-    korisnicko_ime = data.get("korisnicko_ime")
-    lozinka = data.get("lozinka")
 
-    if not korisnicko_ime or not lozinka:
-        return jsonify({"error": "Username and password are required"}), 400
-
-    query = "SELECT ID, Korisnicko_ime, Lozinka, tip_korisnika  FROM Nalog_korisnika WHERE Korisnicko_ime = :korisnicko_ime"
-    result = db_client.execute(query, {"korisnicko_ime": korisnicko_ime})
-
-    if not result:
-        return jsonify({"error": "Invalid username or password"}), 401
-
-    user = result[0]
-    user_id = user[0]
-    username = user[1]
-    db_password = user[2]
-    user_role = user[3]
-    # Verify the password
-    if not check_password_hash(db_password, lozinka):
-        return jsonify({"error": "Invalid username or password"}), 401
-
-    # Generate JWT token
-    access_token = create_access_token(
-    identity=str(user_id),
-    additional_claims={"username": korisnicko_ime, "role":user_role},
-    expires_delta=timedelta(days=30)  # Set token expiration to 30 days
-)
-
-    return jsonify({"token": access_token}), 200
-
-"""
 def logout():
     
     return jsonify({"message": "User successfully logged out"}), 200
