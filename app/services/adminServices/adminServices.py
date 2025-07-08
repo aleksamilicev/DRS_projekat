@@ -84,7 +84,7 @@ def get_all_blocked_users():
         # Query to retrieve all blocked users
         query = """
             SELECT lpk.ID, lpk.Ime, lpk.Prezime, ak.Ulica, ak.Grad, ak.Drzava, 
-                   ck.Broj_telefona, ck.Email, nk.Korisnicko_ime, nk.Tip_korisnika, nk.Blokiran
+                   ck.Broj_telefona, ck.Email, nk.Korisnicko_ime, nk.Tip_korisnika, nk.Blokiran, nk.Profile_picture_url
             FROM Licni_podaci_korisnika lpk
             LEFT JOIN Adresa_korisnika ak ON lpk.ID = ak.ID
             LEFT JOIN Contact_korisnika ck ON lpk.ID = ck.ID
@@ -104,6 +104,7 @@ def get_all_blocked_users():
                 'username': row[8], 
                 'tip_korisnika': row[9], 
                 'blokiran': row[10],
+                'profile_picture_url' : row[11],
                 } for row in results]
         
         return jsonify({"message": "Retrieved all blocked users", "users": users}), 200
@@ -185,6 +186,7 @@ def reject_registration(user_id):
         accept_registration(user_id)
         block_user(user_id)
         notify_user_by_email(user_id, EmailText.EmailText.register_rejected(user_id), db_client)
+        return jsonify({"success": "successfully rejected a user"}), 200
     except PermissionError as e:
         return jsonify({"error": str(e)}), 403
     return
@@ -248,7 +250,8 @@ def get_all_posts():
                 so.Tekst AS content,
                 so.Slika AS image,
                 nk.Korisnicko_ime AS username,
-                nk.profile_picture_url
+                nk.profile_picture_url,
+                nk.id
             FROM Osnovni_podaci_objave opo
             LEFT JOIN Sadrzaj_objave so ON so.Osnovni_podaci_ID = opo.ID
             LEFT JOIN Nalog_korisnika nk ON opo.ID_Korisnika = nk.ID
@@ -261,7 +264,8 @@ def get_all_posts():
             'content': row[1],
             'image': row[2],
             'username': row[3],
-            'profile_picture_url': row[4]
+            'profile_picture_url': row[4],
+            'user_id': row[5]
         } for row in results]
 
         return jsonify({"posts": posts}), 200

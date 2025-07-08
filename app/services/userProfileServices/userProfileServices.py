@@ -59,19 +59,31 @@ def get_user_profile(user_id):
         )[0][0]
 
         # 3️⃣ ── friend status between *me* and *uid* ──────────────────────
+       # 3️⃣ ── friend status between *me* and *uid* ──────────────────────
         if me == uid:
             friend_status = "self"
+            is_receiver = False
         else:
             fs = db.execute(
                 """
-                SELECT STATUS
+                SELECT STATUS, ID_KORISNIKA2
                 FROM Prijateljstva
                 WHERE (ID_KORISNIKA1 = :me AND ID_KORISNIKA2 = :uid)
-                   OR (ID_KORISNIKA2 = :me AND ID_KORISNIKA1 = :uid)
+                OR (ID_KORISNIKA2 = :me AND ID_KORISNIKA1 = :uid)
                 """,
                 {"me": me, "uid": uid},
             )
-            friend_status = fs[0][0] if fs else "none"  # none = no relation
+
+            is_receiver = False  # ✅ Default value
+
+            if fs:
+                status, id2 = fs[0]
+                friend_status = status
+                is_receiver = (id2 == me)
+            else:
+                friend_status = "none"
+
+
 
         # 4️⃣ ── assemble response ─────────────────────────────────────────
         return (
@@ -92,6 +104,7 @@ def get_user_profile(user_id):
                     "posts_count": posts_cnt,
                     "friend_status": friend_status,
                     "is_owner": me == uid,
+                    "is_receiver": is_receiver,
                 }
             ),
             200,

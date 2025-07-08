@@ -60,51 +60,65 @@ def get_friends():
             return jsonify({"error": "Unauthorized"}), 401
 
         query = """
-        SELECT 
-            lpk.ID                AS friend_id,
-            lpk.Ime               AS first_name,
-            lpk.Prezime           AS last_name,
-            ck.Email              AS email,
-            ck.Broj_telefona      AS phone_number,
-            nk.Korisnicko_ime     AS username,            -- ⬅︎ dodaj kolonu
-            p.Status              AS friendship_status
-        FROM Prijateljstva p
-        JOIN Licni_podaci_korisnika lpk 
-             ON (CASE WHEN p.ID_Korisnika1 = :uid THEN p.ID_Korisnika2
-                      ELSE p.ID_Korisnika1 END) = lpk.ID
-        JOIN Contact_korisnika ck  ON lpk.ID = ck.ID
-        JOIN Nalog_korisnika   nk  ON lpk.ID = nk.ID        -- ⬅︎ JOIN da dobiješ username
-        WHERE (p.ID_Korisnika1 = :uid OR p.ID_Korisnika2 = :uid)
-          AND p.Status = 'Accepted'
+        SELECT
+            nk.ID,
+            c.Email,
+            nk.Korisnicko_ime     AS username,
+            lpk.IME,
+            lpk.PREZIME,
+            adr.GRAD,
+            nk.PROFILE_PICTURE_URL,
+            nk.BLOKIRAN,
+            p.Status
+        FROM Nalog_korisnika nk
+        INNER JOIN Licni_podaci_korisnika lpk ON nk.ID = lpk.ID
+        LEFT JOIN Adresa_korisnika adr ON nk.ID = adr.ID
+        LEFT JOIN Contact_korisnika c ON nk.ID = c.ID
+        LEFT JOIN Prijateljstva p
+            ON (
+                (p.ID_KORISNIKA1 = :user_id AND p.ID_KORISNIKA2 = nk.ID)
+                OR
+                (p.ID_KORISNIKA2 = :user_id AND p.ID_KORISNIKA1 = nk.ID)
+            )
+        WHERE
+            nk.ID != :user_id
+            AND nk.TIP_KORISNIKA = 'user'
+            AND p.status = 'Accepted'
         """
-        rows = db.execute_query(query, {"uid": current_user_id})
+
+        rows = db.execute_query(query, {"user_id": current_user_id})
 
         friends = []
-        seen = set()
-        for r in rows:          # r je tuple
+        seen_ids = set()
+
+        for r in rows:
             fid = r[0]
-            if fid in seen:
+            if fid in seen_ids:
                 continue
-            seen.add(fid)
+            seen_ids.add(fid)
+
             friends.append({
-                "id"              : fid,
-                "first_name"      : r[1],
-                "last_name"       : r[2],
-                "email"           : r[3],
-                "phone_number"    : r[4],
-                "username"        : r[5],   # ⬅︎ ubaci u izlaz
-                "friendship_status": r[6],
+                "id": fid,
+                "email": r[1],
+                "username": r[2],
+                "first_name": r[3],
+                "last_name": r[4],
+                "city": r[5],
+                "profile_picture_url": r[6],
+                "is_blocked": r[7],
+                "friendship_status": r[8],
             })
 
         return jsonify({
-            "message"      : "Friends retrieved successfully",
-            "friends"      : friends,
+            "message": "Friends retrieved successfully",
+            "friends": friends,
             "total_friends": len(friends)
         }), 200
 
     except Exception as e:
         current_app.logger.error(f"Error retrieving friends: {e}")
         return jsonify({"error": "Internal server error"}), 500
+
 
 
 
