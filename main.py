@@ -1,4 +1,5 @@
-import os
+
+from flask_socketio import SocketIO
 from flask import Flask
 from database.config import Config
 from database.dbClient import DatabaseClient
@@ -7,6 +8,8 @@ from flask_jwt_extended import JWTManager
 from app.utils import send_email
 from flask_cors import CORS
 from flask import send_from_directory
+
+socketio = SocketIO(cors_allowed_origins="*")
 
 from app.routes import (
     admin_routes,
@@ -22,11 +25,11 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
     app.config['SECRET_KEY'] = 'your_secret_key'
-    app.config['UPLOAD_FOLDER'] = os.path.join(os.getcwd(), 'uploads')
+    socketio.init_app(app)
+    
+ 
 
-    @app.route('/static/uploads/<filename>')
-    def uploaded_file(filename):
-        return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
     
 
 # JWT konfiguracija
@@ -35,15 +38,14 @@ def create_app():
     app.config['JWT_HEADER_NAME'] = 'Authorization'  # Default je "Authorization"
     app.config['JWT_HEADER_TYPE'] = 'Bearer'  # Default je "Bearer"
 
-    # Inicijalizacija JWTManager-a
+
     jwt = JWTManager(app)
     
 
     db_client = DatabaseClient(app)
-    # Attach db_client to the app
     app.db_client = db_client
 
-    # Register blueprints
+    # blueprintovi
     app.register_blueprint(admin_routes)
     app.register_blueprint(notification_routes)
     app.register_blueprint(user_profile_routes)
@@ -52,13 +54,24 @@ def create_app():
     app.register_blueprint(friends_routes)
     app.register_blueprint(search_routes)
 
+    @socketio.on("connect")
+    def handle_connect():
+        print(f" Client connected ")
+
+    @socketio.on("disconnect")
+    def handle_disconnect():
+        print(f" Client disconnected")
+
     @app.route('/')
     def home():
         return "Hello, Flask!"
+    
     CORS(app)
+    app.socketio = socketio
     return app
 
 
 if __name__ == '__main__':
     app = create_app()
-    app.run(debug=True)
+    socketio.run(app, debug=True)
+

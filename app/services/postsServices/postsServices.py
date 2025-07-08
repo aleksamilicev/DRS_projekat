@@ -92,7 +92,18 @@ def create_post():
         )
        
         db_client.commit()
+        current_app.socketio.emit(
+            "new_post_created",
+            {
+                "user_id": current_user_id,
+                "post_id": post_id,
+                "text": text,
+                "image_url": image_url
+            },
+            namespace="/"
+        )
        
+        print("socket emitted event: post creation: id: ", post_id)
         return jsonify({
             "message": "Post created successfully and is pending approval",
             "post_id": post_id
@@ -101,9 +112,8 @@ def create_post():
     except Exception as e:
         db_client.rollback()
         current_app.logger.error(f"Error creating post: {str(e)}")
-        # Rollback any file upload if transaction fails
-        if image_path and os.path.exists(os.path.join(current_app.config['UPLOAD_FOLDER'], os.path.basename(image_path))):
-            os.remove(os.path.join(current_app.config['UPLOAD_FOLDER'], os.path.basename(image_path)))
+       
+        
         return jsonify({"error": "Failed to create post"}), 500
 
 
