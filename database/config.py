@@ -1,9 +1,6 @@
+import os
+
 class Config:
-    # Proper connection string with service name
-    SQLALCHEMY_DATABASE_URI = (
-        #"oracle+cx_oracle://Username:Password@localhost:1521/?service_name=ServiceName)"
-        "oracle+cx_oracle://slavko:ftn@localhost:1521/?service_name=xepdb1"
-    )  
-    SQLALCHEMY_TRACK_MODIFICATIONS = False 
-    SQLALCHEMY_ECHO = False  
-    
+    SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL", "oracle+cx_oracle://slavko:ftn@host.docker.internal:1521/?service_name=xepdb1")
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SQLALCHEMY_ECHO = False
